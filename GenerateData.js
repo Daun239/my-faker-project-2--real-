@@ -98,21 +98,23 @@ async function generateData(
     checks = generateChecksFromTickets(checkTickets, PaymentMethods, employees, clients, tickets, screenings, halls);
 
 
-    const suppliers = generateSuppliers(15);
+    const suppliers = generateSuppliers(7);
 
     const deliveryOrdersNumber = 120;
 
-    const products = generateProducts(150, ProductTypes);
+    const products = generateProducts(ProductTypes);
     const productsInOrder = generateProductsInOrder(1000, deliveryOrdersNumber, products);
 
     const deliveryOrders = generateDeliveryOrders(deliveryOrdersNumber, DeliveryOrderStatuses, PaymentMethods, suppliers, employees, productsInOrder);
-    const productsInStorage = generateProductsInStorage(1000, products, cinemas);
-    const productPlacements = generateProductPlacements(1000, employees, productsInStorage, productsInOrder, deliveryOrders); // Added deliveryOrders
+    const productsInStorage = generateProductsInStorage(products, cinemas, productsInOrder, deliveryOrders, employees);
+    const productPlacements = generateProductPlacements(employees, productsInStorage, productsInOrder, deliveryOrders);
 
     regenerateProductsInStorageQuantity(productsInStorage, productPlacements);
 
-    const productCheckDetails = generateProductCheckDetails(500, productsInStorage);
-    const productChecks = generateProductChecks(200, PaymentMethods, clients, employees, productCheckDetails);
+    const productChecksNumber = 200;
+
+    const productCheckDetails = generateProductCheckDetails(productChecksNumber, productsInStorage);
+    const productChecks = generateProductChecks(productChecksNumber, PaymentMethods, clients, employees, productCheckDetails);
 
     regenerateProductsInStorageQuantityAfterCheck(productsInStorage, productCheckDetails);
 
@@ -363,12 +365,25 @@ const formatTime = (date) =>
 
 
 
-const generateSeats = (halls, minRows, maxRows, minSeats, maxSeats) => {
+const generateSeats = (halls, minRows, maxRows, minSeats, maxSeats, vipChance = 0.5, vipRowsCount = 2) => {
     const seats = [];
 
     halls.forEach((hall) => {
         const rows = getRandomNumberInRange(minRows, maxRows);
         const seatsPerRow = getRandomNumberInRange(minSeats, maxSeats);
+
+        // Чи будуть у цьому залі VIP-ряди (визначаємо випадково)
+        const hasVipRows = Math.random() < vipChance;
+
+        let vipRows = new Set();
+        if (hasVipRows) {
+            const startFromFront = Math.random() < 0.5; // 50% шанс, що VIP-ряди будуть спереду або ззаду
+            if (startFromFront) {
+                vipRows = new Set([...Array(vipRowsCount).keys()].map(i => i + 1)); // Перші ряди
+            } else {
+                vipRows = new Set([...Array(vipRowsCount).keys()].map(i => rows - i)); // Останні ряди
+            }
+        }
 
         for (let row = 1; row <= rows; row++) {
             for (let seat = 1; seat <= seatsPerRow; seat++) {
@@ -377,7 +392,7 @@ const generateSeats = (halls, minRows, maxRows, minSeats, maxSeats) => {
                     RowNumber: row,
                     SeatNumber: seat,
                     HallId: hall.HallsId,
-                    IsVipCategory: Math.random() < 0.5, // Random boolean value
+                    IsVipCategory: vipRows.has(row), // Перевіряємо, чи ряд VIP
                 });
             }
         }
@@ -385,7 +400,6 @@ const generateSeats = (halls, minRows, maxRows, minSeats, maxSeats) => {
 
     return seats;
 };
-
 
 
 const generateChecks = (count, paymentMethods, employees, clients, tickets) => {
@@ -637,17 +651,27 @@ const generateDeliveryOrders = (totalCount, deliveryOrderStatuses, paymentMethod
         employeesResponsibleForDeliveries.push(employeeId);
     }
 
+    // Виділяємо успішні статуси
+    const successfulStatuses = deliveryOrderStatuses.filter(s => [4, 5, 6].includes(s.DeliveryOrderStatusId));
+    const otherStatuses = deliveryOrderStatuses.filter(s => ![4, 5, 6].includes(s.DeliveryOrderStatusId));
+
+    // Формуємо масив, де успішні статуси повторюються більше разів
+    const weightedStatuses = [
+        ...successfulStatuses, ...successfulStatuses, ...successfulStatuses, // Тричі для більшої ймовірності
+        ...otherStatuses
+    ];
+
     for (let i = 0; i < totalCount; i++) {
         const productsInThisOrder = productsInOrder.filter(p => p.DeliveryOrderId === i + 1);
 
         const deliveryOrder = {
-            DeliveryOrderId: i + 1, // Adding unique ID
-            DeliveryOrderStatusId: getRandomItem(deliveryOrderStatuses).DeliveryOrderStatusId,
-            PaymentMethodId: getRandomItem(paymentMethods).PaymentMethodsId, // Fixed key
+            DeliveryOrderId: i + 1, 
+            DeliveryOrderStatusId: getRandomItem(weightedStatuses).DeliveryOrderStatusId, // Зважений вибір
+            PaymentMethodId: getRandomItem(paymentMethods).PaymentMethodsId, 
             SupplierId: getRandomItem(suppliers).SupplierId,
-            EmployeeId: getRandomItem(employeesResponsibleForDeliveries), // Select only from responsible employees
+            EmployeeId: getRandomItem(employeesResponsibleForDeliveries), 
             Number: i + 1,
-            Sum: productsInThisOrder.reduce((acc, p) => acc + (p.Price * p.Quantity), 0) // Fixed reduce
+            Sum: productsInThisOrder.reduce((acc, p) => acc + (p.Price * p.Quantity), 0)
         };
 
         deliveryOrders.push(deliveryOrder);
@@ -657,7 +681,8 @@ const generateDeliveryOrders = (totalCount, deliveryOrderStatuses, paymentMethod
 };
 
 
-const generateProducts = (totalCount, productTypes) => {
+
+const generateProducts = (productTypes) => {
     const BasePrices = {
         1: 80, 2: 45, 3: 55, 4: 50, 5: 60,
         6: 65, 7: 80, 8: 130, 9: 70, 10: 55, 11: 90
@@ -665,46 +690,63 @@ const generateProducts = (totalCount, productTypes) => {
 
     const sizes = ["Small", "Medium", "Large"];
     const SizeCoefficients = { Small: 0.8, Medium: 1, Large: 1.2 };
-    const products = [];
     const BasePrice = 50;
 
-    for (let i = 0; i < totalCount; i++) {
-        const productType = getRandomItem(productTypes);
-        const size = getRandomItem(sizes);
-        const basePrice = BasePrices[productType.ProductTypeId] || BasePrice;
-        const price = basePrice * SizeCoefficients[size];
+    const products = [];
 
-        const product = {
-            ProductId: i + 1, // Adding unique ID
-            ProductTypeId: productType.ProductTypeId,
-            Price: price,
-            Name: `${productType.ProductType} (${size})`
-        };
+    let productId = 1;
 
-        products.push(product);
-    }
+    productTypes.forEach(productType => {
+        sizes.forEach(size => {
+            const basePrice = BasePrices[productType.ProductTypeId] || BasePrice;
+            const price = basePrice * SizeCoefficients[size];
+
+            products.push({
+                ProductId: productId++,
+                ProductTypeId: productType.ProductTypeId,
+                Price: price,
+                Name: `${productType.ProductType} (${size})`
+            });
+        });
+    });
 
     return products;
 };
 
-const generateProductsInStorage = (totalCount, products, cinemas) => {
+const generateProductsInStorage = (products, cinemas, productsInOrder, deliveryOrders, employees) => {
     const productsInStorage = [];
 
-    for (let i = 0; i < totalCount; i++) {
-        const productInStorage = {
-            ProductInStorageId: i + 1, // Adding unique ID
-            ProductId: getRandomItem(products).ProductId,
-            CinemaId: getRandomItem(cinemas).CinemasId,
-            ProductionDate: faker.date.past(1),
-            ExpirationDate: faker.date.future(1),
-            Quantity: getRandomNumberInRange(0, 100)
-        };
 
-        productsInStorage.push(productInStorage);
+        for (const cinema of cinemas) {
+            
+            const employeesForThisCinema = employees.filter(e => e.CinemaId === cinema.CinemasId);
+            const deliveryOrderForThisCinema = deliveryOrders.filter(d => {
+                return employeesForThisCinema.some(e => e.EmployeesId === d.EmployeeId);
+            });
+            
+            const productsInOrderForThisCinema = productsInOrder.filter(p => 
+                deliveryOrderForThisCinema.some(d => d.DeliveryOrderId === p.DeliveryOrderId)
+            );
+            
+
+            for (const productInOrderForThisCinema of productsInOrderForThisCinema) {
+                
+                const productInStorage = {
+                    ProductInStorageId: productsInStorage.length + 1, // Унікальний ID
+                    ProductId: productInOrderForThisCinema.ProductId,
+                    CinemaId: cinema.CinemasId,
+                    ProductionDate: faker.date.past(1),
+                    ExpirationDate: faker.date.future(1),
+                    Quantity: productInOrderForThisCinema.Quantity,
+                };
+
+                productsInStorage.push(productInStorage);
+            }
     }
 
     return productsInStorage;
 };
+
 
 
 const regenerateProductsInStorageQuantity = (productsInStorage, productPlacements) => {
@@ -729,26 +771,29 @@ const regenerateProductsInStorageQuantityAfterCheck = (productsInStorage, produc
 const generateProductsInOrder = (totalCount, deliveryOrdersNumber, products) => {
     const orders = [];
 
-    const productsPerOrder = Math.floor(totalCount / deliveryOrdersNumber); // Кількість продуктів на одне замовлення
+    const avgProductsPerOrder = Math.floor(totalCount / deliveryOrdersNumber);
+
+    const varyingPoint = Math.round(avgProductsPerOrder / 10);
 
     for (let i = 0; i < deliveryOrdersNumber; i++) {
-        const usedProductIds = new Set(); // Щоб уникати повторень у межах одного замовлення
+        const usedProductIds = new Set(); 
 
-        for (let j = 0; j < productsPerOrder; j++) {
-            let product = getRandomItem(products);
+        const productsInThisOrder = Math.max(1, avgProductsPerOrder + getRandomNumberInRange(varyingPoint, varyingPoint));
 
-            // Перевіряємо, чи цей товар вже використано в цьому замовленні
-            while (usedProductIds.has(product.ProductId)) {
+        for (let j = 0; j < productsInThisOrder; j++) {
+            let product;
+            do {
                 product = getRandomItem(products);
-            }
+            } while (usedProductIds.has(product.ProductId));
+            
             usedProductIds.add(product.ProductId);
 
             const order = {
                 ProductInOrderId: orders.length + 1, // Унікальний ID
                 ProductId: product.ProductId,
-                DeliveryOrderId: i + 1, // Генеруємо ID замовлення (i+1)
-                Quantity: getRandomNumberInRange(50, 100),
-                Price: product.Price // Беремо ціну товару
+                DeliveryOrderId: i + 1,
+                Quantity: getRandomNumberInRange(50, 500),
+                Price: product.Price
             };
             orders.push(order);
         }
@@ -757,48 +802,46 @@ const generateProductsInOrder = (totalCount, deliveryOrdersNumber, products) => 
 };
 
 
-
 const generateProductPlacements = (employees, productsInStorage, productsInOrder, deliveryOrders) => {
     const placements = [];
 
-    // Фільтруємо успішно доставлені замовлення
-    const successfulDeliveryStatuses = [4, 5, 6]; // Delivered, Received, Stocked
+    const successfulDeliveryStatuses = [4, 5, 6]; 
     const successfulDeliveryOrders = deliveryOrders
         .filter(order => successfulDeliveryStatuses.includes(order.DeliveryOrderStatusId))
-        .sort((a, b) => a.DeliveryOrderId - b.DeliveryOrderId); // Сортуємо за ID для коректного розподілу дат
+        .sort((a, b) => a.DeliveryOrderId - b.DeliveryOrderId);
 
-    // Фільтруємо продукти, які належать успішним замовленням
     const successfulProductOrders = productsInOrder.filter(productInOrder =>
         successfulDeliveryOrders.some(order => order.DeliveryOrderId === productInOrder.DeliveryOrderId)
     );
 
-    // Відстежуємо, чи створено розміщення для конкретного замовлення
     const deliveryOrderHasPlacement = new Set();
 
     for (const productInStorage of productsInStorage) {
-        const matchingProductOrder = successfulProductOrders.find(p => p.ProductId === productInStorage.ProductId);
-        if (!matchingProductOrder) continue; // Пропускаємо, якщо немає відповідного продукту в замовленні
+        // Знаходимо всі замовлення, які містять цей продукт
+        const matchingProductOrders = successfulProductOrders.filter(p => p.ProductId === productInStorage.ProductId);
+        if (matchingProductOrders.length === 0) continue;
 
-        // Перевіряємо, чи ще немає розміщення для цього замовлення
-        if (deliveryOrderHasPlacement.has(matchingProductOrder.DeliveryOrderId)) continue;
+        // Вибираємо **кожне замовлення**, а не тільки одне!
+        for (const selectedOrder of matchingProductOrders) {
+            // Не пропускаємо всі продукти, якщо хоча б одне розміщення вже є
+            if (deliveryOrderHasPlacement.has(selectedOrder.DeliveryOrderId) && Math.random() < 0.2) continue; 
 
-        // Випадково вирішуємо, чи створювати розміщення (50% шанс)
-        if (Math.random() < 0.5) continue;
+            deliveryOrderHasPlacement.add(selectedOrder.DeliveryOrderId);
 
-        deliveryOrderHasPlacement.add(matchingProductOrder.DeliveryOrderId);
+            const deliveryOrderIndex = successfulDeliveryOrders.findIndex(order => order.DeliveryOrderId === selectedOrder.DeliveryOrderId);
+            const placementDate = faker.date.recent(deliveryOrderIndex >= 0 ? deliveryOrderIndex * 2 : 10);
 
-        const placement = {
-            ProductPlacementId: placements.length + 1, // Унікальний ID
-            EmployeeId: getRandomItem(employees).EmployeesId,
-            ProductInStorageId: productInStorage.ProductInStorageId,
-            ProductInOrderId: matchingProductOrder.ProductInOrderId,
-            Quantity: matchingProductOrder.Quantity, // Кількість повністю відповідає складу
-            PlacementDate: faker.date.recent(successfulDeliveryOrders.indexOf(
-                successfulDeliveryOrders.find(order => order.DeliveryOrderId === matchingProductOrder.DeliveryOrderId)
-            ) * 2), // Дата залежить від ID замовлення
-        };
+            const placement = {
+                ProductPlacementId: placements.length + 1, 
+                EmployeeId: getRandomItem(employees).EmployeesId,
+                ProductInStorageId: productInStorage.ProductInStorageId,
+                ProductInOrderId: selectedOrder.ProductInOrderId,
+                Quantity: Math.min(productInStorage.Quantity, selectedOrder.Quantity), // Уникаємо переповнення складу
+                PlacementDate: placementDate,
+            };
 
-        placements.push(placement);
+            placements.push(placement);
+        }
     }
 
     return placements;
@@ -832,19 +875,53 @@ const generateProductCheckDetails = (productChecksNumber, productsInStorage) => 
     const checkDetails = [];
 
     for (let j = 1; j <= productChecksNumber; j++) {
-        const checkDetailCount = getRandomWeightedNumber({ 1: 10, 2: 50, 3: 20, 4: 10, 5: 5, 6: 2, 7: 1, 8: 1, 9: 1, 10: 1 }); // 2 - найбільш імовірне значення
+        const checkDetailCount = getRandomWeightedNumber({
+            1: 10, 2: 50, 3: 20, 4: 10, 5: 5, 6: 2, 7: 1, 8: 1, 9: 1, 10: 1
+        });
+
+        const orderedProductIds = new Set();
+
+        // Фільтруємо тільки ті продукти, які є в наявності
+        let availableProducts = productsInStorage.filter(p => p.Quantity > 0);
 
         for (let i = 0; i < checkDetailCount; i++) {
+            if (availableProducts.length === 0) break; // Якщо немає товарів, зупиняємо
+
+            let productInStorage;
+
+            // Вибираємо випадковий доступний товар
+            do {
+                productInStorage = getRandomItem(availableProducts);
+            } while (orderedProductIds.has(productInStorage.ProductInStorageId));
+
+            orderedProductIds.add(productInStorage.ProductInStorageId);
+
+            let boughtQuantity;
+
+            // Вибираємо кількість для покупки, але не більше, ніж є в наявності
+            do {
+                boughtQuantity = getRandomWeightedNumber({
+                    1: 10, 2: 50, 3: 20, 4: 10, 5: 5, 6: 2, 7: 1, 8: 1, 9: 1, 10: 1
+                });
+            } while (productInStorage.Quantity < boughtQuantity);
+
+            productInStorage.Quantity -= boughtQuantity;
+
             checkDetails.push({
-                ProductCheckDetailId: checkDetails.length + 1, // Унікальний ID
+                ProductCheckDetailId: checkDetails.length + 1,
                 ProductCheckId: j,
-                ProductInStorageId: getRandomItem(productsInStorage).ProductInStorageId,
-                Quantity: getRandomWeightedNumber({ 1: 10, 2: 50, 3: 20, 4: 10, 5: 5, 6: 2, 7: 1, 8: 1, 9: 1, 10: 1 }),
+                ProductInStorageId: productInStorage.ProductInStorageId,
+                Quantity: boughtQuantity
             });
+
+            // Оновлюємо доступні продукти після зміни кількості
+            availableProducts = productsInStorage.filter(p => p.Quantity > 0);
         }
     }
     return checkDetails;
 };
+
+
 
 // Функція для генерації числа з ймовірностями
 const getRandomWeightedNumber = (weights) => {
