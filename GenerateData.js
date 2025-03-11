@@ -102,15 +102,19 @@ async function generateData(
 
     const deliveryOrdersNumber = 120;
 
-        const products = generateProducts(150, ProductTypes);
+    const products = generateProducts(150, ProductTypes);
     const productsInOrder = generateProductsInOrder(1000, deliveryOrdersNumber, products);
 
     const deliveryOrders = generateDeliveryOrders(deliveryOrdersNumber, DeliveryOrderStatuses, PaymentMethods, suppliers, employees, productsInOrder);
     const productsInStorage = generateProductsInStorage(1000, products, cinemas);
     const productPlacements = generateProductPlacements(1000, employees, productsInStorage, productsInOrder, deliveryOrders); // Added deliveryOrders
-    const productChecks = generateProductChecks(200, PaymentMethods, clients, employees);
-    const productCheckDetails = generateProductCheckDetails(200, productChecks, productsInStorage);
 
+    regenerateProductsInStorageQuantity(productsInStorage, productPlacements);
+
+    const productCheckDetails = generateProductCheckDetails(500, productsInStorage);
+    const productChecks = generateProductChecks(200, PaymentMethods, clients, employees, productCheckDetails);
+
+    regenerateProductsInStorageQuantityAfterCheck(productsInStorage, productCheckDetails);
 
     return {
         cinemas,
@@ -702,6 +706,26 @@ const generateProductsInStorage = (totalCount, products, cinemas) => {
     return productsInStorage;
 };
 
+
+const regenerateProductsInStorageQuantity = (productsInStorage, productPlacements) => {
+    for (let productInStorage of productsInStorage) {
+        const matchingProductPlacements = productPlacements.filter(p => p.ProductInStorageId === productInStorage.ProductInStorageId);
+        productInStorage.Quantity = matchingProductPlacements.reduce((acc, p) => {
+            return acc + p.Quantity;
+        }, 0);
+    }
+};
+
+const regenerateProductsInStorageQuantityAfterCheck = (productsInStorage, productCheckDetails) => {
+    for (let productInStorage of productsInStorage) {
+        const matchingCheckDetails = productCheckDetails.filter(p => p.ProductInStorageId === productInStorage.ProductInStorageId);
+        productInStorage.Quantity -= matchingCheckDetails.reduce((acc, m) => {
+            return acc + m.Quantity;
+        }, 0);
+    }
+};
+
+
 const generateProductsInOrder = (totalCount, deliveryOrdersNumber, products) => {
     const orders = [];
 
@@ -768,7 +792,7 @@ const generateProductPlacements = (employees, productsInStorage, productsInOrder
             EmployeeId: getRandomItem(employees).EmployeesId,
             ProductInStorageId: productInStorage.ProductInStorageId,
             ProductInOrderId: matchingProductOrder.ProductInOrderId,
-            Quantity: productInStorage.Quantity, // Кількість повністю відповідає складу
+            Quantity: matchingProductOrder.Quantity, // Кількість повністю відповідає складу
             PlacementDate: faker.date.recent(successfulDeliveryOrders.indexOf(
                 successfulDeliveryOrders.find(order => order.DeliveryOrderId === matchingProductOrder.DeliveryOrderId)
             ) * 2), // Дата залежить від ID замовлення
@@ -794,9 +818,9 @@ const generateProductChecks = (totalCount, paymentMethods, clients, employees, p
             ClientId: getRandomItem(clients).ClientsId,
             EmployeeId: getRandomItem(employees).EmployeesId,
             Number: i,
-            Sum: productCheckDetails.reduce((acc, p => {
-                return acc + p;
-            }), 0),
+            Sum: productCheckDetails.reduce((acc, p) => {
+                return acc + p.Quantity; // Replace "Quantity" with the correct field
+            }, 0),
             BuyTime: faker.date.past(),
         };
         checks.push(check);
@@ -804,16 +828,16 @@ const generateProductChecks = (totalCount, paymentMethods, clients, employees, p
     return checks;
 };
 
-const generateProductCheckDetails = (totalCount, productChecks, productsInStorage) => {
+const generateProductCheckDetails = (productChecksNumber, productsInStorage) => {
     const checkDetails = [];
 
-    for (let check of productChecks) {
+    for (let j = 1; j <= productChecksNumber; j++) {
         const checkDetailCount = getRandomWeightedNumber({ 1: 10, 2: 50, 3: 20, 4: 10, 5: 5, 6: 2, 7: 1, 8: 1, 9: 1, 10: 1 }); // 2 - найбільш імовірне значення
 
         for (let i = 0; i < checkDetailCount; i++) {
             checkDetails.push({
                 ProductCheckDetailId: checkDetails.length + 1, // Унікальний ID
-                ProductCheckId: check.ProductCheckId, 
+                ProductCheckId: j,
                 ProductInStorageId: getRandomItem(productsInStorage).ProductInStorageId,
                 Quantity: getRandomWeightedNumber({ 1: 10, 2: 50, 3: 20, 4: 10, 5: 5, 6: 2, 7: 1, 8: 1, 9: 1, 10: 1 }),
             });
