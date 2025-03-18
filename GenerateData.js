@@ -19,6 +19,10 @@ async function readMovies(rowsNumber) {
     return processCSV('TMDB_movie_dataset_v11.csv', rowsNumber);
 }
 
+async function readTickets(rowsNumber) {
+    return  processCSV('cinema_hall_ticket_sales.csv', 1000);
+}
+
 // Функція для отримання ID або додавання нового значення
 function getOrCreateId(array, value, key, idKey) {
     let existingItem = array.find(item => item[key] === value);
@@ -81,7 +85,7 @@ async function generateData(
 ) {
 
 
-    cinemas = generateCinemas(10, Cities);
+    cinemas = generateCinemas(10, Cities, CinemaNames);
     halls = generateHalls(cinemas);
     employees = generateEmployees(24, cinemas);
     movies = [];
@@ -93,7 +97,20 @@ async function generateData(
     screenings = generateScreenings(250, ScreeningFormats, halls, runs, Languages, movies);
     seats = generateSeats(halls, 4, 8, 5, 10);
     clients = generateClients(1400);
-    tickets = generateTickets(4000, seats, screenings);
+    const ticketPrices = [];
+    tickets = await readTickets(1000);
+
+    tickets.forEach((t) => addTicket(t));
+
+    function addTicket (ticket) {
+        ticketPrices.push({
+            ticketPrice: ticket.Ticket_Price,
+            isVip: ticket.Seat_Type === 'Standard', 
+        })
+    }
+
+    tickets = generateTickets(4000, seats, screenings, ticketPrices);
+
     checkTickets = generateCheckTickets(tickets, screenings, halls);
     checks = generateChecksFromTickets(checkTickets, PaymentMethods, employees, clients, tickets, screenings, halls);
 
@@ -106,17 +123,17 @@ async function generateData(
     const productsInOrder = generateProductsInOrder(1000, deliveryOrdersNumber, products);
 
     const deliveryOrders = generateDeliveryOrders(deliveryOrdersNumber, DeliveryOrderStatuses, PaymentMethods, suppliers, employees, productsInOrder);
-    const productsInStorage = generateProductsInStorage(products, cinemas, productsInOrder, deliveryOrders, employees);
-    const productPlacements = generateProductPlacements(employees, productsInStorage, productsInOrder, deliveryOrders);
+    const productPlacements = generateProductPlacements(employees, productsInOrder, deliveryOrders);
+    const productsInStorage = generateProductsInStorage(cinemas, productsInOrder, deliveryOrders, employees, productPlacements);
 
-    regenerateProductsInStorageQuantity(productsInStorage, productPlacements);
+    // regenerateProductsInStorageQuantity(productsInStorage, productPlacements);
 
-    const productChecksNumber = 200;
+    const productChecksNumber = 600;
 
     const productCheckDetails = generateProductCheckDetails(productChecksNumber, productsInStorage);
-    const productChecks = generateProductChecks(productChecksNumber, PaymentMethods, clients, employees, productCheckDetails);
+    const productChecks = generateProductChecks(productChecksNumber, PaymentMethods, clients, employees, productCheckDetails, productsInStorage, products, productPlacements);
 
-    regenerateProductsInStorageQuantityAfterCheck(productsInStorage, productCheckDetails);
+    // regenerateProductsInStorageQuantityAfterCheck(productsInStorage, productCheckDetails);
 
     return {
         cinemas,
@@ -144,15 +161,29 @@ async function generateData(
     };
 }
 
-const generateCinemas = (count, cities) => {
+const generateCinemas = (count, cities, CinemaNames) => {
     const cinemas = [];
     let cinemaId = 1;
+    const usedCinemaNames = new Set(); // Зберігаємо використані назви
+
+    // Функція для вибору унікальної назви кінотеатру
+    const getUniqueCinemaName = () => {
+        if (CinemaNames.length === usedCinemaNames.size) {
+            throw new Error("Not enough unique cinema names available");
+        }
+        let name;
+        do {
+            name = getRandomItem(CinemaNames);
+        } while (usedCinemaNames.has(name));
+        usedCinemaNames.add(name);
+        return name;
+    };
 
     // Step 1: Ensure each city has at least one cinema.
     cities.forEach((city) => {
         cinemas.push({
             CinemasId: cinemaId++,
-            Name: faker.company.buzzVerb(),
+            Name: getUniqueCinemaName(),
             CitiesId: city.CitiesId,
             Address: faker.location.streetAddress(),
         });
@@ -161,10 +192,10 @@ const generateCinemas = (count, cities) => {
     // Step 2: Distribute remaining cinemas randomly among all cities.
     const remainingCinemasCount = count - cities.length;
     for (let i = 0; i < remainingCinemasCount; i++) {
-        const randomCity = getRandomItem(cities); // Pick a random city.
+        const randomCity = getRandomItem(cities); // Випадкове місто
         cinemas.push({
             CinemasId: cinemaId++,
-            Name: faker.company.buzzVerb(),
+            Name: getUniqueCinemaName(),
             CitiesId: randomCity.CitiesId,
             Address: faker.location.streetAddress(),
         });
@@ -172,6 +203,7 @@ const generateCinemas = (count, cities) => {
 
     return cinemas;
 };
+
 
 const generateHalls = (cinemas) => {
 
@@ -545,42 +577,47 @@ const generateCheckTickets = (tickets, screenings, halls) => {
     return checkTickets;
 };
 
-const generateTickets = (count, seats, screenings) => {
+const generateTickets = (count, seats, screenings, ticketPrices) => {
+
+    const dollarCoefficient = 15;
     const tickets = [];
-    const priceMapping = {}; // Stores price by ScreeningId + IsVipCategory combination
-    const usedSeats = new Map(); // Map to track used seats per screening
+    const priceMapping = {}; // Зберігає ціни за комбінацією ScreeningId + IsVipCategory
+    const usedSeats = new Map(); // Відстежує зайняті місця для кожного сеансу
 
     for (let i = 0; i < count; i++) {
         const screening = getRandomItem(screenings);
 
-        // Фільтруємо місця, які належать до залу цього сеансу і ще не були використані
+        // Фільтруємо доступні місця для конкретного залу та сеансу
         const availableSeats = seats.filter(seat =>
             seat.HallId === screening.HallsId &&
             (!usedSeats.has(screening.ScreeningsId) || !usedSeats.get(screening.ScreeningsId).has(seat.SeatsId))
         );
 
-        if (availableSeats.length === 0) continue; // Якщо немає доступних місць, пропускаємо ітерацію
+        if (availableSeats.length === 0) continue; // Якщо немає місць, пропускаємо ітерацію
 
         const seat = getRandomItem(availableSeats);
 
-        // Додаємо місце до використаних для цього сеансу
+        // Додаємо місце в список зайнятих
         if (!usedSeats.has(screening.ScreeningsId)) {
             usedSeats.set(screening.ScreeningsId, new Set());
         }
         usedSeats.get(screening.ScreeningsId).add(seat.SeatsId);
 
-        // Create a unique key for the screening and seat category
+        // Унікальний ключ для ціни
         const priceKey = `${screening.ScreeningsId}-${seat.IsVipCategory}`;
 
-        // If the price for this combination is not set, generate and store it
+        // Якщо ціна ще не визначена для цієї комбінації, беремо випадкову з ticketPrices
         if (!priceMapping[priceKey]) {
-            priceMapping[priceKey] = getRandomNumberInRange(100, 500); // Random price between 100 and 500
+            const matchingPrices = ticketPrices.filter(price => price.isVip === seat.IsVipCategory);
+            priceMapping[priceKey] = Math.round((matchingPrices.length > 0 
+                ? getRandomItem(matchingPrices).ticketPrice // Випадкова ціна з доступних
+                : 7 ) * dollarCoefficient) ; // Дефолтна ціна, якщо нічого не знайшли
         }
 
         tickets.push({
             TicketsId: i + 1,
             SeatId: seat.SeatsId,
-            Price: priceMapping[priceKey], // Consistent price for the same screening + seat type
+            Price: priceMapping[priceKey], // Вставляємо відповідну ціну
             Number: i + 1,
             ScreeningsId: screening.ScreeningsId,
         });
@@ -588,6 +625,7 @@ const generateTickets = (count, seats, screenings) => {
 
     return tickets;
 };
+
 
 
 // Функція для генерації даних для Жанрів Фільмів
@@ -651,27 +689,56 @@ const generateDeliveryOrders = (totalCount, deliveryOrderStatuses, paymentMethod
         employeesResponsibleForDeliveries.push(employeeId);
     }
 
-    // Виділяємо успішні статуси
-    const successfulStatuses = deliveryOrderStatuses.filter(s => [4, 5, 6].includes(s.DeliveryOrderStatusId));
-    const otherStatuses = deliveryOrderStatuses.filter(s => ![4, 5, 6].includes(s.DeliveryOrderStatusId));
+    // Успішні статуси (95% шансів)
+    const successfulStatuses = deliveryOrderStatuses.filter(s => s.DeliveryOrderStatusId === 3); // Delivered
 
-    // Формуємо масив, де успішні статуси повторюються більше разів
+    // Інші статуси (5% шансів)
+    const otherStatuses = deliveryOrderStatuses.filter(s => s.DeliveryOrderStatusId !== 3); 
+
+    // Зважений список статусів (95% успішних)
     const weightedStatuses = [
-        ...successfulStatuses, ...successfulStatuses, ...successfulStatuses, // Тричі для більшої ймовірності
-        ...otherStatuses
+        ...Array(19).fill(successfulStatuses).flat(), // 95% успіху
+        ...Array(1).fill(otherStatuses).flat() // 5% інші
     ];
+
+    // Базова дата (2 роки тому)
+    const baseDate = new Date();
+    baseDate.setFullYear(baseDate.getFullYear() - 2);
+
+    // Поточна дата
+    const currentDate = new Date();
+
+    // Межа (1 тиждень тому)
+    const oneWeekAgo = new Date();
+    oneWeekAgo.setDate(currentDate.getDate() - 7);
 
     for (let i = 0; i < totalCount; i++) {
         const productsInThisOrder = productsInOrder.filter(p => p.DeliveryOrderId === i + 1);
 
+        // Генеруємо дату так, щоб пізніші замовлення мали пізніші дати
+        const orderDate = new Date(baseDate.getTime());
+        const timeOffset = (currentDate.getTime() - baseDate.getTime()) * (i / totalCount);
+        orderDate.setTime(baseDate.getTime() + timeOffset);
+
+        // Випадковий час у межах доби
+        orderDate.setHours(Math.floor(Math.random() * 24), Math.floor(Math.random() * 60), Math.floor(Math.random() * 60));
+
+        // Визначаємо доступні статуси
+        let allowedStatuses = weightedStatuses;
+        if (orderDate < oneWeekAgo) {
+            // Якщо замовлення старше 1 тижня, виключаємо Ordered і Shipped
+            allowedStatuses = weightedStatuses.filter(s => ![1, 2].includes(s.DeliveryOrderStatusId));
+        }
+
         const deliveryOrder = {
-            DeliveryOrderId: i + 1, 
-            DeliveryOrderStatusId: getRandomItem(weightedStatuses).DeliveryOrderStatusId, // Зважений вибір
-            PaymentMethodId: getRandomItem(paymentMethods).PaymentMethodsId, 
+            DeliveryOrderId: i + 1,
+            DeliveryOrderStatusId: getRandomItem(allowedStatuses).DeliveryOrderStatusId,
+            PaymentMethodId: getRandomItem(paymentMethods).PaymentMethodsId,
             SupplierId: getRandomItem(suppliers).SupplierId,
-            EmployeeId: getRandomItem(employeesResponsibleForDeliveries), 
+            EmployeeId: getRandomItem(employeesResponsibleForDeliveries),
             Number: i + 1,
-            Sum: productsInThisOrder.reduce((acc, p) => acc + (p.Price * p.Quantity), 0)
+            Sum: productsInThisOrder.reduce((acc, p) => acc + (p.Price * p.Quantity), 0),
+            OrderDateTime: orderDate.toISOString().slice(0, 19).replace('T', ' ') // Формат "YYYY-MM-DD HH:MM:SS"
         };
 
         deliveryOrders.push(deliveryOrder);
@@ -679,6 +746,10 @@ const generateDeliveryOrders = (totalCount, deliveryOrderStatuses, paymentMethod
 
     return deliveryOrders;
 };
+
+
+
+
 
 
 
@@ -713,39 +784,80 @@ const generateProducts = (productTypes) => {
     return products;
 };
 
-const generateProductsInStorage = (products, cinemas, productsInOrder, deliveryOrders, employees) => {
+const generateProductsInStorage = (cinemas, productsInOrder, deliveryOrders, employees, productPlacements) => {
     const productsInStorage = [];
+    const successfulDeliveryStatuses = [3]; // Наприклад, статус "доставлено"
 
+    // Фільтруємо успішні замовлення та сортуємо їх за ID
+    const successfulDeliveryOrders = deliveryOrders
+        .filter(d => successfulDeliveryStatuses.includes(d.DeliveryOrderStatusId))
+        .sort((a, b) => a.DeliveryOrderId - b.DeliveryOrderId); // Сортуємо за ID, щоб обробляти від старих до нових
 
-        for (const cinema of cinemas) {
-            
-            const employeesForThisCinema = employees.filter(e => e.CinemaId === cinema.CinemasId);
-            const deliveryOrderForThisCinema = deliveryOrders.filter(d => {
-                return employeesForThisCinema.some(e => e.EmployeesId === d.EmployeeId);
-            });
-            
-            const productsInOrderForThisCinema = productsInOrder.filter(p => 
-                deliveryOrderForThisCinema.some(d => d.DeliveryOrderId === p.DeliveryOrderId)
-            );
-            
+    // Мапа для отримання кінотеатру за EmployeeId
+    const employeeCinemaMap = new Map();
+    for (const employee of employees) {
+        employeeCinemaMap.set(employee.EmployeesId, employee.CinemaId);
+    }
 
-            for (const productInOrderForThisCinema of productsInOrderForThisCinema) {
-                
-                const productInStorage = {
-                    ProductInStorageId: productsInStorage.length + 1, // Унікальний ID
-                    ProductId: productInOrderForThisCinema.ProductId,
-                    CinemaId: cinema.CinemasId,
-                    ProductionDate: faker.date.past(1),
-                    ExpirationDate: faker.date.future(1),
-                    Quantity: productInOrderForThisCinema.Quantity,
-                };
+    // Мапа для збереження ТІЛЬКИ shelfLife (ExpirationDate - ProductionDate) для кожного продукту
+    const productShelfLifeMap = new Map();
 
-                productsInStorage.push(productInStorage);
-            }
+    // Мапа для оновлення `ProductPlacement`
+    const productPlacementMap = new Map();
+
+    for (const placement of productPlacements) {
+        const relatedOrder = productsInOrder.find(p => p.ProductInOrderId === placement.ProductInOrderId);
+        if (!relatedOrder) continue;
+
+        const relatedDeliveryOrder = successfulDeliveryOrders.find(d => d.DeliveryOrderId === relatedOrder.DeliveryOrderId);
+        if (!relatedDeliveryOrder) continue;
+
+        const cinemaId = employeeCinemaMap.get(relatedDeliveryOrder.EmployeeId);
+        if (!cinemaId) continue;
+
+        const orderDate = new Date(relatedDeliveryOrder.OrderDateTime); // Дата замовлення
+
+        // Отримуємо shelfLife або генеруємо, якщо його ще нема
+        let shelfLife = productShelfLifeMap.get(relatedOrder.ProductId);
+        if (!shelfLife) {
+            shelfLife = getRandomNumberInRange(30, 180) * 24 * 60 * 60 * 1000; // 30-180 днів у мс
+            productShelfLifeMap.set(relatedOrder.ProductId, shelfLife);
+        }
+
+        // ProductionDate має бути унікальною та збільшуватися для вищого DeliveryOrderId
+        let baseProductionDate = new Date(orderDate);
+        baseProductionDate.setDate(baseProductionDate.getDate() - getRandomNumberInRange(30, 90)); // 30-90 днів до OrderDateTime
+
+        // ExpirationDate = ProductionDate + shelfLife
+        const expirationDate = new Date(baseProductionDate.getTime() + shelfLife);
+
+        // Створюємо об'єкт ProductInStorage
+        const productInStorage = {
+            ProductInStorageId: productsInStorage.length + 1,
+            ProductId: relatedOrder.ProductId,
+            CinemaId: cinemaId,
+            ProductionDate: baseProductionDate,
+            ExpirationDate: expirationDate,
+            Quantity: placement.Quantity,
+        };
+
+        productsInStorage.push(productInStorage);
+
+        // Зберігаємо відповідність для оновлення `ProductPlacement`
+        productPlacementMap.set(placement.ProductPlacementId, productInStorage.ProductInStorageId);
+    }
+
+    // Оновлюємо `ProductPlacements`, встановлюючи `ProductInStorageId`
+    for (const placement of productPlacements) {
+        placement.ProductInStorageId = productPlacementMap.get(placement.ProductPlacementId) || null;
     }
 
     return productsInStorage;
 };
+
+
+
+
 
 
 
@@ -770,14 +882,13 @@ const regenerateProductsInStorageQuantityAfterCheck = (productsInStorage, produc
 
 const generateProductsInOrder = (totalCount, deliveryOrdersNumber, products) => {
     const orders = [];
+    const expirationOffsets = new Map(); // Зберігаємо фіксований інтервал для кожного продукту
 
     const avgProductsPerOrder = Math.floor(totalCount / deliveryOrdersNumber);
-
     const varyingPoint = Math.round(avgProductsPerOrder / 10);
 
     for (let i = 0; i < deliveryOrdersNumber; i++) {
-        const usedProductIds = new Set(); 
-
+        const usedProductIds = new Set();
         const productsInThisOrder = Math.max(1, avgProductsPerOrder + getRandomNumberInRange(varyingPoint, varyingPoint));
 
         for (let j = 0; j < productsInThisOrder; j++) {
@@ -785,15 +896,31 @@ const generateProductsInOrder = (totalCount, deliveryOrdersNumber, products) => 
             do {
                 product = getRandomItem(products);
             } while (usedProductIds.has(product.ProductId));
-            
+
             usedProductIds.add(product.ProductId);
+
+            const productionDate = getRandomPastDate(2 * 365); // Випадкова дата за останні 2 роки
+
+            // Якщо продукт вже має визначений інтервал, використовуємо його
+            let expirationOffset;
+            if (expirationOffsets.has(product.ProductId)) {
+                expirationOffset = expirationOffsets.get(product.ProductId);
+            } else {
+                expirationOffset = getRandomNumberInRange(6 * 30, 24 * 30); // 6-24 місяці у днях
+                expirationOffsets.set(product.ProductId, expirationOffset);
+            }
+
+            const expirationDate = new Date(productionDate);
+            expirationDate.setDate(productionDate.getDate() + expirationOffset);
 
             const order = {
                 ProductInOrderId: orders.length + 1, // Унікальний ID
                 ProductId: product.ProductId,
                 DeliveryOrderId: i + 1,
                 Quantity: getRandomNumberInRange(50, 500),
-                Price: product.Price
+                Price: (product.Price / 2) * (1 + (Math.random() - 0.5) / 10), // Ціна = половина + варіація ±5%
+                ProductionDate: productionDate,
+                ExpirationDate: expirationDate
             };
             orders.push(order);
         }
@@ -801,59 +928,110 @@ const generateProductsInOrder = (totalCount, deliveryOrdersNumber, products) => 
     return orders;
 };
 
+// Функція для отримання випадкової дати у минулому (у днях)
+const getRandomPastDate = (maxDaysAgo) => {
+    const now = new Date();
+    const pastDate = new Date(now);
+    pastDate.setDate(now.getDate() - getRandomNumberInRange(0, maxDaysAgo));
+    return pastDate;
+};
 
-const generateProductPlacements = (employees, productsInStorage, productsInOrder, deliveryOrders) => {
+
+const generateProductPlacements = (employees, productsInOrder, deliveryOrders) => {
     const placements = [];
+    let placementIdCounter = 1;
 
-    const successfulDeliveryStatuses = [4, 5, 6]; 
+    // Успішний статус доставки (Delivered)
+    const successfulDeliveryStatus = 3;
+
+    // Фільтруємо успішні замовлення (тільки Delivered)
     const successfulDeliveryOrders = deliveryOrders
-        .filter(order => successfulDeliveryStatuses.includes(order.DeliveryOrderStatusId))
+        .filter(order => order.DeliveryOrderStatusId === successfulDeliveryStatus)
         .sort((a, b) => a.DeliveryOrderId - b.DeliveryOrderId);
 
+    // Фільтруємо продукти, які були успішно доставлені
     const successfulProductOrders = productsInOrder.filter(productInOrder =>
         successfulDeliveryOrders.some(order => order.DeliveryOrderId === productInOrder.DeliveryOrderId)
     );
 
-    const deliveryOrderHasPlacement = new Set();
+    // Допоміжна функція для вибору випадкового елемента
+    const getRandomItem = (array) => array[Math.floor(Math.random() * array.length)];
 
-    for (const productInStorage of productsInStorage) {
-        // Знаходимо всі замовлення, які містять цей продукт
-        const matchingProductOrders = successfulProductOrders.filter(p => p.ProductId === productInStorage.ProductId);
-        if (matchingProductOrders.length === 0) continue;
+    // Допоміжна функція для отримання випадкової кількості днів (1-7)
+    const getRandomDaysOffset = () => Math.floor(Math.random() * 7) + 1;
 
-        // Вибираємо **кожне замовлення**, а не тільки одне!
-        for (const selectedOrder of matchingProductOrders) {
-            // Не пропускаємо всі продукти, якщо хоча б одне розміщення вже є
-            if (deliveryOrderHasPlacement.has(selectedOrder.DeliveryOrderId) && Math.random() < 0.2) continue; 
+    // Створення записів розміщення продуктів
+    for (const productOrder of successfulProductOrders) {
+        // Знаходимо відповідне замовлення доставки
+        const deliveryOrder = successfulDeliveryOrders.find(order => order.DeliveryOrderId === productOrder.DeliveryOrderId);
 
-            deliveryOrderHasPlacement.add(selectedOrder.DeliveryOrderId);
+        // Отримуємо дату отримання товару (DeliveryDate)
+        const receivedDate = new Date(deliveryOrder.OrderDateTime);
+        
+        // Додаємо випадковий час (1-7 днів)
+        const placementDate = new Date(receivedDate);
+        placementDate.setDate(receivedDate.getDate() + getRandomDaysOffset());
 
-            const deliveryOrderIndex = successfulDeliveryOrders.findIndex(order => order.DeliveryOrderId === selectedOrder.DeliveryOrderId);
-            const placementDate = faker.date.recent(deliveryOrderIndex >= 0 ? deliveryOrderIndex * 2 : 10);
+        // Створюємо запис про розміщення
+        const placement = {
+            ProductPlacementId: placementIdCounter++,
+            EmployeeId: getRandomItem(employees).EmployeesId,
+            ProductInOrderId: productOrder.ProductInOrderId,
+            Quantity: productOrder.Quantity,
+            PlacementDate: placementDate,
+        };
 
-            const placement = {
-                ProductPlacementId: placements.length + 1, 
-                EmployeeId: getRandomItem(employees).EmployeesId,
-                ProductInStorageId: productInStorage.ProductInStorageId,
-                ProductInOrderId: selectedOrder.ProductInOrderId,
-                Quantity: Math.min(productInStorage.Quantity, selectedOrder.Quantity), // Уникаємо переповнення складу
-                PlacementDate: placementDate,
-            };
-
-            placements.push(placement);
-        }
+        placements.push(placement);
     }
 
     return placements;
 };
 
 
-const generateProductChecks = (totalCount, paymentMethods, clients, employees, productCheckDetails) => {
+
+
+
+
+const generateProductChecks = (totalCount, paymentMethods, clients, employees, productCheckDetails, productsInStorage, products, productPlacements) => {
     const checks = [];
 
     for (let i = 1; i <= totalCount; i++) {
+        let sum = 0;
+        let latestPlacementDate = new Date(0); // Початкове значення (дуже стара дата)
 
-        productCheckDetails.filter(d => d.productCheckDetailId === i);
+        const checkDetails = productCheckDetails.filter(d => d.ProductCheckId === i);
+
+        for (const checkDetail of checkDetails) {
+            // Знаходимо відповідний продукт у сховищі
+            const relevantProductInStorage = productsInStorage.find(product =>
+                product.ProductInStorageId === checkDetail.ProductInStorageId
+            );
+
+            if (!relevantProductInStorage) continue; // Якщо продукту немає, пропускаємо ітерацію
+
+            // Знаходимо відповідний продукт у списку продуктів
+            const relevantProduct = products.find(product =>
+                product.ProductId === relevantProductInStorage.ProductId
+            );
+
+            if (!relevantProduct) continue; // Якщо продукту немає, пропускаємо ітерацію
+
+            // Додаємо вартість продукту в загальну суму
+            sum += checkDetail.Quantity * relevantProduct.Price;
+
+            // Знаходимо дату розміщення продукту
+            const placement = productPlacements.find(p => 
+                p.ProductInStorageId === relevantProductInStorage.ProductInStorageId
+            );
+
+            if (placement && new Date(placement.PlacementDate) > latestPlacementDate) {
+                latestPlacementDate = new Date(placement.PlacementDate);
+            }
+        }
+
+        // Встановлюємо BuyTime трохи пізніше, ніж latestPlacementDate
+        const buyTime = new Date(latestPlacementDate);
+        buyTime.setMinutes(buyTime.getMinutes() + Math.floor(Math.random() * 120) + 10); // Додаємо випадково від 10 до 130 хвилин
 
         const check = {
             ProductCheckId: i,
@@ -861,15 +1039,15 @@ const generateProductChecks = (totalCount, paymentMethods, clients, employees, p
             ClientId: getRandomItem(clients).ClientsId,
             EmployeeId: getRandomItem(employees).EmployeesId,
             Number: i,
-            Sum: productCheckDetails.reduce((acc, p) => {
-                return acc + p.Quantity; // Replace "Quantity" with the correct field
-            }, 0),
-            BuyTime: faker.date.past(),
+            Sum: sum, // Використовуємо відфільтровану суму
+            BuyTime: buyTime,
         };
+
         checks.push(check);
     }
     return checks;
 };
+
 
 const generateProductCheckDetails = (productChecksNumber, productsInStorage) => {
     const checkDetails = [];
@@ -881,8 +1059,12 @@ const generateProductCheckDetails = (productChecksNumber, productsInStorage) => 
 
         const orderedProductIds = new Set();
 
-        // Фільтруємо тільки ті продукти, які є в наявності
-        let availableProducts = productsInStorage.filter(p => p.Quantity > 0);
+        // Вибираємо випадковий кінотеатр для цього чеку
+        const availableCinemaIds = [...new Set(productsInStorage.map(p => p.CinemaId))];
+        const selectedCinemaId = getRandomItem(availableCinemaIds);
+
+        // Фільтруємо тільки ті продукти, які є в наявності і з потрібного кінотеатру
+        let availableProducts = productsInStorage.filter(p => p.Quantity > 0 && p.CinemaId === selectedCinemaId);
 
         for (let i = 0; i < checkDetailCount; i++) {
             if (availableProducts.length === 0) break; // Якщо немає товарів, зупиняємо
@@ -901,7 +1083,7 @@ const generateProductCheckDetails = (productChecksNumber, productsInStorage) => 
             // Вибираємо кількість для покупки, але не більше, ніж є в наявності
             do {
                 boughtQuantity = getRandomWeightedNumber({
-                    1: 10, 2: 50, 3: 20, 4: 10, 5: 5, 6: 2, 7: 1, 8: 1, 9: 1, 10: 1
+                    1: 40, 2: 50, 3: 20, 4: 10, 5: 5, 6: 2, 7: 1, 8: 1, 9: 1, 10: 1
                 });
             } while (productInStorage.Quantity < boughtQuantity);
 
@@ -915,13 +1097,11 @@ const generateProductCheckDetails = (productChecksNumber, productsInStorage) => 
             });
 
             // Оновлюємо доступні продукти після зміни кількості
-            availableProducts = productsInStorage.filter(p => p.Quantity > 0);
+            availableProducts = productsInStorage.filter(p => p.Quantity > 0 && p.CinemaId === selectedCinemaId);
         }
     }
     return checkDetails;
 };
-
-
 
 // Функція для генерації числа з ймовірностями
 const getRandomWeightedNumber = (weights) => {

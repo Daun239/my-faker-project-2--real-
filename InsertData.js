@@ -39,6 +39,8 @@ async function insertData( { cinemas,
   try {
     await sql.connect(config);
 
+    console.log('Began inserting')
+
     for (const publisher of Publishers) {
       await insertPublisher(publisher.publisher);
     }
@@ -52,7 +54,7 @@ async function insertData( { cinemas,
       await insertAgeRestriction(ageRestriction.AgeRestriction);
     }
     for (const hallTechnology of HallTechnologies) {
-      await insertHallTechnology(hallTechnology.HallTechnology, hallTechnology.HallTechnologiesId);
+      await insertHallTechnology(hallTechnology.HallTechnology);
     }
     for (const screeningFormat of ScreeningFormats) {
       await insertScreeningFormat(screeningFormat.ScreeningFormat);
@@ -75,41 +77,41 @@ async function insertData( { cinemas,
     for (const employee of employees) {
       await insertEmployee(employee.CinemaId, employee.Name, employee.Surname, employee.CellNumber, employee.Email);
     }
-    // for (const movie of movies) {
-    //   await insertMovie(movie.Name, movie.CountriesId, movie.AgeRestrictionsId, movie.PublishersId, movie.Runtime, movie.Description, movie.Budget, movie.LanguagesId);
-    // }
-    // for (const run of runs) {
-    //   await insertRun(run.StartDate, run.EndDate, run.MovieId);
-    // }
-    // for (const screening of screenings) {
-    //   await insertScreening(screening.ScreeningFormatsId, screening.HallsId, screening.RunsId, screening.LanguagesId, screening.StartDate, screening.StartTime, screening.EndTime);
-    // }
-    // for (const seat of seats) {
-    //   await insertSeat(seat.RowNumber, seat.SeatNumber, seat.HallId, seat.IsVipCategory);
-    // }
+    for (const movie of movies) {
+      await insertMovie(movie.Name, movie.CountriesId, movie.AgeRestrictionsId, movie.PublishersId, movie.Runtime, movie.Description, movie.Budget, movie.LanguagesId);
+    }
+    for (const run of runs) {
+      await insertRun(run.StartDate, run.EndDate, run.MovieId);
+    }
+    for (const screening of screenings) {
+      await insertScreening(screening.ScreeningFormatsId, screening.HallsId, screening.RunsId, screening.LanguagesId, screening.StartDate, screening.StartTime, screening.EndTime);
+    }
+    for (const seat of seats) {
+      await insertSeat(seat.RowNumber, seat.SeatNumber, seat.HallId, seat.IsVipCategory);
+    }
     for (const client of clients) {
       await insertClient(client.Name, client.Surname, client.CellNumber, client.Email);
     }
-    // for (const ticket of tickets) {
-    //   await insertTicket(ticket.SeatId, ticket.Price, ticket.Number, ticket.ScreeningsId);
-    // }
-    // for (const check of checks) {
-    //   await insertCheck(
-    //     check.Sum,
-    //     check.PaymentMethodsId,
-    //     check.EmployeeId,
-    //     check.ClientId,
-    //     check.BuyDate,
-    //     check.BuyTime,
-    //     clients
-    //   );
-    // }
-    // for (const movieGenre of MovieGenres) {
-    //   await insertMovieGenre(movieGenre.movieId, movieGenre.genresId);
-    // }
-    // for (const checkTicket of checkTickets) {
-    //   await insertCheckTicket(checkTicket.CheckId, checkTicket.TicketId);
-    // }
+    for (const ticket of tickets) {
+      await insertTicket(ticket.SeatId, ticket.Price, ticket.Number, ticket.ScreeningsId);
+    }
+    for (const check of checks) {
+      await insertCheck(
+        check.Sum,
+        check.PaymentMethodsId,
+        check.EmployeeId,
+        check.ClientId,
+        check.BuyDate,
+        check.BuyTime,
+        clients
+      );
+    }
+    for (const movieGenre of MovieGenres) {
+      await insertMovieGenre(movieGenre.movieId, movieGenre.genresId);
+    }
+    for (const checkTicket of checkTickets) {
+      await insertCheckTicket(checkTicket.CheckId, checkTicket.TicketId);
+    }
 
 
     for (const ProductType of ProductTypes) {
@@ -132,7 +134,8 @@ async function insertData( { cinemas,
         deliveryOrder.SupplierId,
         deliveryOrder.EmployeeId,
         deliveryOrder.Number,
-        deliveryOrder.Sum
+        deliveryOrder.Sum,
+        deliveryOrder.OrderDateTime,
       );
     }
 
@@ -154,8 +157,7 @@ async function insertData( { cinemas,
       );
     }
 
-
-    // Insert ProductsInOrder  
+ 
     for (const productInOrder of productsInOrder) {
       await insertProductInOrder(
         productInOrder.ProductId,
@@ -246,16 +248,25 @@ const insertPaymentMethod = async (paymentMethod) => {
 
 const insertCinema = async (name, cityId, address) => {
   try {
-    const request = new sql.Request();
+    const pool = await sql.connect(); // Переконайся, що є конфігурація підключення
+    const request = pool.request();
+    
+    // Додаємо параметри без ризику синтаксичних помилок
+    request.input('name', sql.NVarChar, name);
+    request.input('cityId', sql.Int, cityId);
+    request.input('address', sql.NVarChar, address);
+
     await request.query(`
         INSERT INTO Cinemas (Name, CityId, Address) 
-        VALUES ('${name}', ${cityId}, '${address}')
+        VALUES (@name, @cityId, @address)
       `);
+
     // console.log('Cinema inserted successfully');
   } catch (err) {
     console.error('Error inserting cinema:', err);
   }
 };
+
 
 const insertHall = async (cinemaId, hallNumber, hallTechnologiesId) => {
   try {
@@ -383,26 +394,42 @@ const insertGenre = async (genre) => {
   }
 };
 
-const insertHallTechnology = async (hallTechnology, hallTechnologiesId) => {
+const insertHallTechnology = async (hallTechnology) => {
   try {
-    // console.log('Hall technology id =', hallTechnologiesId);
     const request = new sql.Request();
 
-    // Use parameterized query to avoid SQL injection.
+    // Перевіряємо, чи існує запис із таким hallTechnology
     request.input('hallTechnology', sql.VarChar, hallTechnology);
-    request.input('hallTechnologyId', sql.Int, hallTechnologiesId);
+    let checkQuery = `SELECT HallTechnologyId FROM HallTechnologies WHERE HallTechnology = @hallTechnology`;
+    let result = await request.query(checkQuery);
 
-    const query = `
+    let hallTechnologyId;
+    
+    if (result.recordset.length === 0) {
+      console.log(`HallTechnology "${hallTechnology}" не існує. Додаємо...`);
+      
+      // Вставляємо новий запис
+      const insertQuery = `
         INSERT INTO HallTechnologies (HallTechnology)
+        OUTPUT INSERTED.HallTechnologyId
         VALUES (@hallTechnology)
       `;
 
-    await request.query(query);
-    // console.log('Hall technology inserted successfully');
+      let insertResult = await request.query(insertQuery);
+      hallTechnologyId = insertResult.recordset[0].HallTechnologyId;
+      console.log('Hall technology inserted successfully.');
+    } else {
+      hallTechnologyId = result.recordset[0].HallTechnologyId;
+      console.log(`HallTechnology "${hallTechnology}" вже існує.`);
+    }
+
+    return hallTechnologyId; // Повертаємо ID для використання при вставці в Halls
+
   } catch (err) {
     console.error('Error inserting hall technology:', err);
   }
 };
+
 
 const insertScreeningFormat = async (screeningFormat) => {
   try {
@@ -646,21 +673,22 @@ const insertSupplier = async (name, surname, cellNumber, email) => {
 
 
 
-const insertDeliveryOrder = async (deliveryOrderStatusId, paymentMethodId, supplierId, employeeId, number, sum) => {
+const insertDeliveryOrder = async (deliveryOrderStatusId, paymentMethodId, supplierId, employeeId, number, sum, orderDateTime) => {
   try {
     const request = new sql.Request();
 
-    // Use parameters to avoid unclosed quotation issues
+    // Використовуємо параметри для безпечного виконання запиту
     request.input('DeliveryOrderStatusId', sql.Int, deliveryOrderStatusId);
     request.input('PaymentMethodId', sql.Int, paymentMethodId);
     request.input('SupplierId', sql.Int, supplierId);
     request.input('EmployeeId', sql.Int, employeeId);
     request.input('Number', sql.Int, number);
     request.input('Sum', sql.Int, sum);
+    request.input('OrderDateTime', sql.DateTime, orderDateTime); // Додаємо новий параметр
 
     const query = `
-        INSERT INTO DeliveryOrders (DeliveryOrderStatusId, PaymentMethodId, SupplierId, EmployeeId, Number, Sum)
-        VALUES (@DeliveryOrderStatusId, @PaymentMethodId, @SupplierId, @EmployeeId, @Number, @Sum)
+        INSERT INTO DeliveryOrders (DeliveryOrderStatusId, PaymentMethodId, SupplierId, EmployeeId, Number, Sum, OrderDateTime)
+        VALUES (@DeliveryOrderStatusId, @PaymentMethodId, @SupplierId, @EmployeeId, @Number, @Sum, @OrderDateTime)
       `;
 
     await request.query(query);
@@ -669,6 +697,19 @@ const insertDeliveryOrder = async (deliveryOrderStatusId, paymentMethodId, suppl
     console.error('Error inserting delivery order:', err);
   }
 };
+
+// Цикл для вставки всіх замовлень
+for (const deliveryOrder of deliveryOrders) {
+  await insertDeliveryOrder(
+    deliveryOrder.DeliveryOrderStatusId,
+    deliveryOrder.PaymentMethodId,
+    deliveryOrder.SupplierId,
+    deliveryOrder.EmployeeId,
+    deliveryOrder.Number,
+    deliveryOrder.Sum,
+    deliveryOrder.OrderDateTime // Передаємо дату
+  );
+}
 
 const insertProduct = async (productTypeId, price, name) => {
   try {

@@ -274,6 +274,7 @@ Create Table DeliveryOrders (
 	EmployeeId int,
 	Number int Check(Number > 0),
 	Sum int Check(Sum >= 0),
+	OrderDateTime DateTime NOT NULL,
     CreateDateTime DATETIME DEFAULT GETDATE(),
     UpdateDateTime DATETIME NULL,
 	foreign key (DeliveryOrderStatusId) References DeliveryOrderStatuses(DeliveryOrderStatusId),

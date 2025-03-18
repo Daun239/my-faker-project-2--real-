@@ -54,17 +54,13 @@ const CinemaNames = [
 ];
 
 const DeliveryOrderStatuses = Object.freeze([
-  { DeliveryOrderStatusId: 1, DeliveryOrderStatus: "Ordered" },       // Item has been ordered from the supplier
-  { DeliveryOrderStatusId: 2, DeliveryOrderStatus: "Shipped" },       // Item has been shipped by the supplier
-  { DeliveryOrderStatusId: 3, DeliveryOrderStatus: "In Transit" },    // Item is currently on its way to the cinema
-  { DeliveryOrderStatusId: 4, DeliveryOrderStatus: "Delivered" },     // Item has arrived at the cinema
-  { DeliveryOrderStatusId: 5, DeliveryOrderStatus: "Received" },      // Item has been checked and received by the cinema (inventory)
-  { DeliveryOrderStatusId: 6, DeliveryOrderStatus: "Stocked" },       // Item has been stocked and is ready for sale
-  { DeliveryOrderStatusId: 7, DeliveryOrderStatus: "Pending" },       // Order is pending due to some issue (e.g., out of stock, delayed shipment)
-  { DeliveryOrderStatusId: 8, DeliveryOrderStatus: "Cancelled" },     // Order was canceled before it was shipped or delivered
-  { DeliveryOrderStatusId: 9, DeliveryOrderStatus: "Rejected" },      // Item was rejected upon delivery due to damage or incorrect order
-  { DeliveryOrderStatusId: 10, DeliveryOrderStatus: "Returned" }      // Item was returned to the supplier (e.g., incorrect order, unsellable items)
+  { DeliveryOrderStatusId: 1, DeliveryOrderStatus: "Ordered" },     // Замовлено у постачальника
+  { DeliveryOrderStatusId: 2, DeliveryOrderStatus: "Shipped" },     // Відправлено постачальником
+  { DeliveryOrderStatusId: 3, DeliveryOrderStatus: "Delivered" },   // Доставлено до кінотеатру
+  { DeliveryOrderStatusId: 4, DeliveryOrderStatus: "Cancelled" },   // Скасовано до доставки
+  { DeliveryOrderStatusId: 5, DeliveryOrderStatus: "Returned" }     // Повернуто постачальнику
 ]);
+
 
 const ProductTypes = [
   { ProductType: "Popcorn", ProductTypeId: 1 },       // Standard movie snack
