@@ -508,7 +508,7 @@ const insertScreening = async (screeningFormatsId, hallsId, runsId, languagesId,
     const formattedStartDate = startDateObj.toISOString().split('T')[0];
 
     // Log values before processing
-    console.log("startTime:", startTime, "endTime:", endTime);
+    // console.log("startTime:", startTime, "endTime:", endTime);
 
     // Check if startTime and endTime are valid time values
     if (typeof startTime !== 'string' || !/^\d{2}:\d{2}(:\d{2})?$/.test(startTime)) {
@@ -665,7 +665,7 @@ const insertSupplier = async (name, surname, cellNumber, email) => {
       `;
 
     await request.query(query);
-    console.log('Supplier inserted successfully');
+    // console.log('Supplier inserted successfully');
   } catch (err) {
     console.error('Error inserting supplier:', err);
   }
@@ -692,24 +692,11 @@ const insertDeliveryOrder = async (deliveryOrderStatusId, paymentMethodId, suppl
       `;
 
     await request.query(query);
-    console.log('Delivery order inserted successfully');
+    // console.log('Delivery order inserted successfully');
   } catch (err) {
     console.error('Error inserting delivery order:', err);
   }
 };
-
-// Цикл для вставки всіх замовлень
-for (const deliveryOrder of deliveryOrders) {
-  await insertDeliveryOrder(
-    deliveryOrder.DeliveryOrderStatusId,
-    deliveryOrder.PaymentMethodId,
-    deliveryOrder.SupplierId,
-    deliveryOrder.EmployeeId,
-    deliveryOrder.Number,
-    deliveryOrder.Sum,
-    deliveryOrder.OrderDateTime // Передаємо дату
-  );
-}
 
 const insertProduct = async (productTypeId, price, name) => {
   try {
@@ -726,7 +713,7 @@ const insertProduct = async (productTypeId, price, name) => {
       `;
 
     await request.query(query);
-    console.log('Product inserted successfully');
+    // console.log('Product inserted successfully');
   } catch (err) {
     console.error('Error inserting product:', err);
   }
@@ -749,7 +736,7 @@ const insertProductInStorage = async (productId, cinemaId, productionDate, expir
       `;
 
     await request.query(query);
-    console.log('Product in storage inserted successfully');
+    // console.log('Product in storage inserted successfully');
   } catch (err) {
     console.error('Error inserting product in storage:', err);
   }
@@ -769,7 +756,7 @@ const insertProductInOrder = async (productId, deliveryOrderId, quantity, price)
         `;
 
     await request.query(query);
-    console.log('ProductInOrder inserted successfully');
+    // console.log('ProductInOrder inserted successfully');
   } catch (err) {
     console.error('Error inserting ProductInOrder:', err);
   }
@@ -791,7 +778,7 @@ const insertProductPlacement = async (employeeId, productInStorageId, productInO
       `;
 
     await request.query(query);
-    console.log('ProductPlacement inserted successfully');
+    // console.log('ProductPlacement inserted successfully');
   } catch (err) {
     console.error('Error inserting ProductPlacement:', err);
   }
@@ -814,7 +801,7 @@ const insertProductCheck = async (paymentMethodId, clientId, employeeId, number,
       `;
 
     await request.query(query);
-    console.log('ProductCheck inserted successfully');
+    // console.log('ProductCheck inserted successfully');
   } catch (err) {
     console.error('Error inserting ProductCheck:', err);
   }
@@ -833,7 +820,7 @@ const insertProductCheckDetail = async (productCheckId, productInStorageId, quan
       `;
 
     await request.query(query);
-    console.log('ProductCheckDetail inserted successfully');
+    // console.log('ProductCheckDetail inserted successfully');
   } catch (err) {
     console.error('Error inserting ProductCheckDetail:', err);
   }
