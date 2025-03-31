@@ -1,8 +1,6 @@
 const { sql, config } = require('./ConnectToDb');
 
-
-
-async function insertData( { cinemas,
+async function insertData({ cinemas,
   halls,
   employees,
   movies,
@@ -19,10 +17,10 @@ async function insertData( { cinemas,
   Countries,
   Genres,
   MovieGenres,
-  AgeRestrictions, 
+  AgeRestrictions,
   HallTechnologies,
-  ScreeningFormats, 
-  PaymentMethods, 
+  ScreeningFormats,
+  PaymentMethods,
   Cities,
   CinemaNames,
   ProductTypes,
@@ -34,13 +32,18 @@ async function insertData( { cinemas,
   productsInOrder,
   productPlacements,
   productChecks,
-  productCheckDetails }
+  productCheckDetails, 
+  EmployeePositions }
 ) {
   try {
     await sql.connect(config);
 
     console.log('Began inserting')
 
+
+    for (const employeePosition of EmployeePositions) {
+      await insertEmployeePosition(employeePosition.Position);
+    }
     for (const publisher of Publishers) {
       await insertPublisher(publisher.publisher);
     }
@@ -75,7 +78,7 @@ async function insertData( { cinemas,
       await insertHall(hall.CinemaId, hall.HallNumber, hall.HallTechnologiesId);
     }
     for (const employee of employees) {
-      await insertEmployee(employee.CinemaId, employee.Name, employee.Surname, employee.CellNumber, employee.Email);
+      await insertEmployee(employee.CinemaId, employee.Name, employee.Surname, employee.CellNumber, employee.Email, employee.Position);
     }
     for (const movie of movies) {
       await insertMovie(movie.Name, movie.CountriesId, movie.AgeRestrictionsId, movie.PublishersId, movie.Runtime, movie.Description, movie.Budget, movie.LanguagesId);
@@ -136,6 +139,7 @@ async function insertData( { cinemas,
         deliveryOrder.Number,
         deliveryOrder.Sum,
         deliveryOrder.OrderDateTime,
+        deliveryOrder.EndDateTime
       );
     }
 
@@ -157,7 +161,7 @@ async function insertData( { cinemas,
       );
     }
 
- 
+
     for (const productInOrder of productsInOrder) {
       await insertProductInOrder(
         productInOrder.ProductId,
@@ -250,7 +254,7 @@ const insertCinema = async (name, cityId, address) => {
   try {
     const pool = await sql.connect(); // Переконайся, що є конфігурація підключення
     const request = pool.request();
-    
+
     // Додаємо параметри без ризику синтаксичних помилок
     request.input('name', sql.NVarChar, name);
     request.input('cityId', sql.Int, cityId);
@@ -282,28 +286,43 @@ const insertHall = async (cinemaId, hallNumber, hallTechnologiesId) => {
 };
 
 
-const insertEmployee = async (cinemaId, name, surname, cellNumber, email) => {
+const insertEmployee = async (cinemaId, name, surname, cellNumber, email, position) => {
   try {
     const request = new sql.Request();
 
-    // Use parameters to avoid unclosed quotation issues
+    // Отримуємо PositionId на основі назви посади
+    const positionQuery = `
+        SELECT EmployeePositionId FROM EmployeePositions WHERE EmployeePosition = @Position
+    `;
+    request.input('Position', sql.VarChar(50), position);
+    const positionResult = await request.query(positionQuery);
+
+    if (positionResult.recordset.length === 0) {
+      throw new Error(`Position '${position}' not found in EmployeePositions`);
+    }
+
+    const positionId = positionResult.recordset[0].EmployeePositionId;
+
+    // Додаємо працівника з отриманим PositionId
     request.input('Name', sql.VarChar(50), name);
     request.input('Surname', sql.VarChar(50), surname);
     request.input('CellNumber', sql.VarChar(20), cellNumber);
     request.input('Email', sql.VarChar(100), email);
     request.input('CinemaId', sql.Int, cinemaId);
+    request.input('EmployeePositionId', sql.Int, positionId);
 
     const query = `
-        INSERT INTO Employees (Name, Surname, CellNumber, Email, CinemaId)
-        VALUES (@Name, @Surname, @CellNumber, @Email, @CinemaId)
-      `;
+        INSERT INTO Employees (Name, Surname, CellNumber, Email, CinemaId, EmployeePositionId)
+        VALUES (@Name, @Surname, @CellNumber, @Email, @CinemaId, @EmployeePositionId)
+    `;
 
     await request.query(query);
-    // console.log('Employee inserted successfully');
+    console.log('Employee inserted successfully');
   } catch (err) {
     console.error('Error inserting employee:', err);
   }
 };
+
 
 
 const insertClient = async (name, surname, cellNumber, email) => {
@@ -404,10 +423,10 @@ const insertHallTechnology = async (hallTechnology) => {
     let result = await request.query(checkQuery);
 
     let hallTechnologyId;
-    
+
     if (result.recordset.length === 0) {
       console.log(`HallTechnology "${hallTechnology}" не існує. Додаємо...`);
-      
+
       // Вставляємо новий запис
       const insertQuery = `
         INSERT INTO HallTechnologies (HallTechnology)
@@ -673,7 +692,7 @@ const insertSupplier = async (name, surname, cellNumber, email) => {
 
 
 
-const insertDeliveryOrder = async (deliveryOrderStatusId, paymentMethodId, supplierId, employeeId, number, sum, orderDateTime) => {
+const insertDeliveryOrder = async (deliveryOrderStatusId, paymentMethodId, supplierId, employeeId, number, sum, orderDateTime, endDateTime) => {
   try {
     const request = new sql.Request();
 
@@ -684,11 +703,12 @@ const insertDeliveryOrder = async (deliveryOrderStatusId, paymentMethodId, suppl
     request.input('EmployeeId', sql.Int, employeeId);
     request.input('Number', sql.Int, number);
     request.input('Sum', sql.Int, sum);
-    request.input('OrderDateTime', sql.DateTime, orderDateTime); // Додаємо новий параметр
+    request.input('OrderDateTime', sql.DateTime, orderDateTime);
+    request.input('EndDateTime', sql.DateTime, endDateTime); // Додаємо параметр EndDateTime
 
     const query = `
-        INSERT INTO DeliveryOrders (DeliveryOrderStatusId, PaymentMethodId, SupplierId, EmployeeId, Number, Sum, OrderDateTime)
-        VALUES (@DeliveryOrderStatusId, @PaymentMethodId, @SupplierId, @EmployeeId, @Number, @Sum, @OrderDateTime)
+        INSERT INTO DeliveryOrders (DeliveryOrderStatusId, PaymentMethodId, SupplierId, EmployeeId, Number, Sum, OrderDateTime, EndDateTime)
+        VALUES (@DeliveryOrderStatusId, @PaymentMethodId, @SupplierId, @EmployeeId, @Number, @Sum, @OrderDateTime, @EndDateTime)
       `;
 
     await request.query(query);
@@ -697,6 +717,7 @@ const insertDeliveryOrder = async (deliveryOrderStatusId, paymentMethodId, suppl
     console.error('Error inserting delivery order:', err);
   }
 };
+
 
 const insertProduct = async (productTypeId, price, name) => {
   try {
@@ -826,6 +847,24 @@ const insertProductCheckDetail = async (productCheckId, productInStorageId, quan
   }
 };
 
+
+const insertEmployeePosition = async (EmployeePosition) => {
+  try {
+    const request = new sql.Request();
+    request.input('EmployeePosition', sql.VarChar(255), EmployeePosition);
+
+
+    const query = `
+    INSERT INTO EmployeePositions (EmployeePosition)
+    VALUES (@EmployeePosition)
+`;
+
+    await request.query(query);
+    // console.log('ProductCheckDetail inserted successfully');
+  } catch (err) {
+    console.error('Error inserting EmployeePosition:', err);
+  }
+}
 // Exporting all the functions
 module.exports = {
   insertData

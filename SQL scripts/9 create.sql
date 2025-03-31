@@ -1,4 +1,5 @@
 ﻿-- Видалення таблиць у правильному порядку
+DROP TABLE IF Exists EmployeePositions;
 DROP TABLE IF EXISTS ProductCheckDetails;
 DROP TABLE IF EXISTS ProductChecks;
 DROP TABLE IF EXISTS ProductPlacements;

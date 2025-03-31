@@ -76,6 +76,13 @@ const ProductTypes = [
   { ProductType: "Frozen Yogurt", ProductTypeId: 11 } // Frozen yogurt with toppings
 ];
 
+const EmployeePositions = [
+  { EmployeePositionId : 1 , Position: 'Cashier', },
+  { EmployeePositionId : 2 , Position: 'WarehouseWorker'},
+  { EmployeePositionId : 3 , Position: 'Manager' }
+];
+
+
 module.exports = {
   AgeRestrictions,
   HallTechnologies,
@@ -84,5 +91,6 @@ module.exports = {
   Cities,
   CinemaNames,
   DeliveryOrderStatuses,
-  ProductTypes
+  ProductTypes,
+  EmployeePositions
 };

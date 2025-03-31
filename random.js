@@ -3,7 +3,7 @@ const { generateData } = require('./GenerateData');
 const { insertData } = require('./InsertData');
 const {
   AgeRestrictions, HallTechnologies, ScreeningFormats, PaymentMethods, Cities, CinemaNames,   ProductTypes,
-  DeliveryOrderStatuses,
+  DeliveryOrderStatuses, EmployeePositions
 } = require('./Classifiers');
 
 sql.connect(config, async function (err) {
@@ -135,7 +135,8 @@ sql.connect(config, async function (err) {
           productsInOrder,
           productPlacements,
           productChecks,
-          productCheckDetails
+          productCheckDetails,
+          EmployeePositions
           }
         );
         console.log("All operations completed successfully.");
