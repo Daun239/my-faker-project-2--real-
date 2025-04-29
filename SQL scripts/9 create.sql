@@ -1,5 +1,5 @@
 ﻿-- Видалення таблиць у правильному порядку
-DROP TABLE IF Exists EmployeePositions;
+Drop Table if exists ScreeningPrices;
 DROP TABLE IF EXISTS ProductCheckDetails;
 DROP TABLE IF EXISTS ProductChecks;
 DROP TABLE IF EXISTS ProductPlacements;
@@ -31,21 +31,28 @@ DROP TABLE IF EXISTS ScreeningFormats;
 DROP TABLE IF EXISTS Cities;
 DROP TABLE IF EXISTS ProductTypes;
 DROP TABLE IF EXISTS DeliveryOrderStatuses;
-
+DROP TABLE IF EXISTS EmployeePositions;
 
 
 create table DeliveryOrderStatuses(
 	DeliveryOrderStatusId int identity(1,1) primary key,
 	DeliveryOrderStatus Varchar(255),
-	    CreateDateTime DATETIME DEFAULT GETDATE(),
+	CreateDateTime DATETIME DEFAULT GETDATE(),
     UpdateDateTime DATETIME NULL,
 );
+
+Create Table EmployeePositions (
+	EmployeePositionId int identity(1,1) primary key,
+	EmployeePosition Varchar(255),
+	CreateDateTime DATETIME DEFAULT GETDATE(),
+    UpdateDateTime DATETIME NULL,
+)
 
 
 create table ProductTypes(
 	ProductTypeId int identity(1,1) primary key,
 	ProductType varchar(255),
-	    CreateDateTime DATETIME DEFAULT GETDATE(),
+	CreateDateTime DATETIME DEFAULT GETDATE(),
     UpdateDateTime DATETIME NULL,
 );
 
@@ -60,14 +67,14 @@ CREATE TABLE Publishers (
 CREATE TABLE PaymentMethods (
     PaymentMethodId INT IDENTITY(1,1) PRIMARY KEY, 
     PaymentMethod VARCHAR(255),
-	    CreateDateTime DATETIME DEFAULT GETDATE(),
+	CreateDateTime DATETIME DEFAULT GETDATE(),
     UpdateDateTime DATETIME NULL,
 );
 
 CREATE TABLE Languages (
     LanguageId INT IDENTITY(1,1) PRIMARY KEY, 
     Language VARCHAR(255),
-	    CreateDateTime DATETIME DEFAULT GETDATE(),
+	CreateDateTime DATETIME DEFAULT GETDATE(),
     UpdateDateTime DATETIME NULL,
 );
 
@@ -81,35 +88,35 @@ CREATE TABLE Countries (
 CREATE TABLE AgeRestrictions (
     AgeRestrictionId INT IDENTITY(1,1) PRIMARY KEY,
     AgeRestriction INT CHECK (AgeRestriction >= 0),
-	    CreateDateTime DATETIME DEFAULT GETDATE(),
+	CreateDateTime DATETIME DEFAULT GETDATE(),
     UpdateDateTime DATETIME NULL,
 );
 
 CREATE TABLE Genres (
     GenreId INT IDENTITY(1,1) PRIMARY KEY, 
     Genre VARCHAR(255),
-	    CreateDateTime DATETIME DEFAULT GETDATE(),
+	CreateDateTime DATETIME DEFAULT GETDATE(),
     UpdateDateTime DATETIME NULL,
 );
 
 CREATE TABLE HallTechnologies (
     HallTechnologyId INT IDENTITY(1,1) PRIMARY KEY,
     HallTechnology VARCHAR(255),
-	    CreateDateTime DATETIME DEFAULT GETDATE(),
+	CreateDateTime DATETIME DEFAULT GETDATE(),
     UpdateDateTime DATETIME NULL,
 );
 
 CREATE TABLE ScreeningFormats (
     ScreeningFormatId INT IDENTITY(1,1) PRIMARY KEY,
     ScreeningFormat VARCHAR(255),
-	    CreateDateTime DATETIME DEFAULT GETDATE(),
+	CreateDateTime DATETIME DEFAULT GETDATE(),
     UpdateDateTime DATETIME NULL,
 );
 
 CREATE TABLE Cities (
     CityId INT IDENTITY(1,1) PRIMARY KEY,
     City VARCHAR(255),
-	    CreateDateTime DATETIME DEFAULT GETDATE(),
+	CreateDateTime DATETIME DEFAULT GETDATE(),
     UpdateDateTime DATETIME NULL,
 );
 
@@ -137,13 +144,16 @@ CREATE TABLE Halls (
 CREATE TABLE Employees (
     EmployeeId INT IDENTITY(1,1) PRIMARY KEY, 
     CinemaId INT NOT NULL,
+	EmployeePositionId INT Not Null,
     Name VARCHAR(255),
     Surname VARCHAR(255),
     CellNumber VARCHAR(20) UNIQUE,
     Email VARCHAR(255) UNIQUE,
+	PasswordHash NVARCHAR(255) NOT NULL,
     CreateDateTime DATETIME DEFAULT GETDATE(),
     UpdateDateTime DATETIME NULL,
-    FOREIGN KEY (CinemaId) REFERENCES Cinemas(CinemaId)
+    FOREIGN KEY (CinemaId) REFERENCES Cinemas(CinemaId),
+	Foreign Key(EmployeePositionId) References EmployeePositions(EmployeePositionId),
 );
 
 CREATE TABLE Clients (
@@ -201,6 +211,16 @@ CREATE TABLE Screenings (
     FOREIGN KEY (LanguageId) REFERENCES Languages(LanguageId)
 );
 
+Create Table ScreeningPrices (
+	ScreeningPricingId int identity(1,1) primary key,
+	TicketPrice int check(ticketPrice >= 0),
+	VipTicketPrice int check (VipTicketPrice >= 0),
+	ScreeningId int,
+	CreateDateTime DATETIME DEFAULT GETDATE(),
+    UpdateDateTime DATETIME NULL,
+	Foreign Key (ScreeningId) References Screenings(ScreeningId)
+)
+
 CREATE TABLE Seats (
     SeatId INT IDENTITY(1,1) PRIMARY KEY, 
     RowNumber INT CHECK (RowNumber > 0),
@@ -252,6 +272,8 @@ CREATE TABLE MoviesGenres (
     MoviesGenresId INT IDENTITY(1,1) PRIMARY KEY, 
     MovieId INT NOT NULL,
     GenreId INT NOT NULL,
+	CreateDateTime DATETIME DEFAULT GETDATE(),
+    UpdateDateTime DATETIME NULL,
     FOREIGN KEY (MovieId) REFERENCES Movies(MovieId),
     FOREIGN KEY (GenreId) REFERENCES Genres(GenreId)
 );
@@ -275,7 +297,8 @@ Create Table DeliveryOrders (
 	EmployeeId int,
 	Number int Check(Number > 0),
 	Sum int Check(Sum >= 0),
-	OrderDateTime DateTime NOT NULL,
+	OrderDateTime DateTime Not null,
+	EndDateTime DateTime,
     CreateDateTime DATETIME DEFAULT GETDATE(),
     UpdateDateTime DATETIME NULL,
 	foreign key (DeliveryOrderStatusId) References DeliveryOrderStatuses(DeliveryOrderStatusId),

@@ -1,6 +1,7 @@
-const { sql, config } = require('./ConnectToDb');
+const { sql, config } = require("./ConnectToDb");
 
-async function insertData({ cinemas,
+async function insertData({
+  cinemas,
   halls,
   employees,
   movies,
@@ -32,14 +33,14 @@ async function insertData({ cinemas,
   productsInOrder,
   productPlacements,
   productChecks,
-  productCheckDetails, 
-  EmployeePositions }
-) {
+  productCheckDetails,
+  EmployeePositions,
+  screeningPrices,
+}) {
   try {
     await sql.connect(config);
 
-    console.log('Began inserting')
-
+    console.log("Began inserting");
 
     for (const employeePosition of EmployeePositions) {
       await insertEmployeePosition(employeePosition.Position);
@@ -78,25 +79,64 @@ async function insertData({ cinemas,
       await insertHall(hall.CinemaId, hall.HallNumber, hall.HallTechnologiesId);
     }
     for (const employee of employees) {
-      await insertEmployee(employee.CinemaId, employee.Name, employee.Surname, employee.CellNumber, employee.Email, employee.Position);
+      await insertEmployee(
+        employee.CinemaId,
+        employee.Name,
+        employee.Surname,
+        employee.CellNumber,
+        employee.Email,
+        employee.Position
+      );
     }
     for (const movie of movies) {
-      await insertMovie(movie.Name, movie.CountriesId, movie.AgeRestrictionsId, movie.PublishersId, movie.Runtime, movie.Description, movie.Budget, movie.LanguagesId);
+      await insertMovie(
+        movie.Name,
+        movie.CountriesId,
+        movie.AgeRestrictionsId,
+        movie.PublishersId,
+        movie.Runtime,
+        movie.Description,
+        movie.Budget,
+        movie.LanguagesId
+      );
     }
     for (const run of runs) {
       await insertRun(run.StartDate, run.EndDate, run.MovieId);
     }
     for (const screening of screenings) {
-      await insertScreening(screening.ScreeningFormatsId, screening.HallsId, screening.RunsId, screening.LanguagesId, screening.StartDate, screening.StartTime, screening.EndTime);
+      await insertScreening(
+        screening.ScreeningFormatsId,
+        screening.HallsId,
+        screening.RunsId,
+        screening.LanguagesId,
+        screening.StartDate,
+        screening.StartTime,
+        screening.EndTime
+      );
     }
     for (const seat of seats) {
-      await insertSeat(seat.RowNumber, seat.SeatNumber, seat.HallId, seat.IsVipCategory);
+      await insertSeat(
+        seat.RowNumber,
+        seat.SeatNumber,
+        seat.HallId,
+        seat.IsVipCategory
+      );
     }
     for (const client of clients) {
-      await insertClient(client.Name, client.Surname, client.CellNumber, client.Email);
+      await insertClient(
+        client.Name,
+        client.Surname,
+        client.CellNumber,
+        client.Email
+      );
     }
     for (const ticket of tickets) {
-      await insertTicket(ticket.SeatId, ticket.Price, ticket.Number, ticket.ScreeningsId);
+      await insertTicket(
+        ticket.SeatId,
+        ticket.Price,
+        ticket.Number,
+        ticket.ScreeningsId
+      );
     }
     for (const check of checks) {
       await insertCheck(
@@ -104,9 +144,7 @@ async function insertData({ cinemas,
         check.PaymentMethodsId,
         check.EmployeeId,
         check.ClientId,
-        check.BuyDate,
-        check.BuyTime,
-        clients
+        check.BuyDateTime
       );
     }
     for (const movieGenre of MovieGenres) {
@@ -116,7 +154,6 @@ async function insertData({ cinemas,
       await insertCheckTicket(checkTicket.CheckId, checkTicket.TicketId);
     }
 
-
     for (const ProductType of ProductTypes) {
       await insertProductType(ProductType.ProductType);
     }
@@ -125,9 +162,13 @@ async function insertData({ cinemas,
       await insertDeliveryOrderStatus(DeliveryOrderStatus.DeliveryOrderStatus);
     }
 
-
     for (const supplier of suppliers) {
-      await insertSupplier(supplier.Name, supplier.Surname, supplier.CellNumber, supplier.Email);
+      await insertSupplier(
+        supplier.Name,
+        supplier.Surname,
+        supplier.CellNumber,
+        supplier.Email
+      );
     }
 
     for (const deliveryOrder of deliveryOrders) {
@@ -144,13 +185,16 @@ async function insertData({ cinemas,
     }
 
     for (const product of products) {
-      await insertProduct(
-        product.ProductTypeId,
-        product.Price,
-        product.Name
-      );
+      await insertProduct(product.ProductTypeId, product.Price, product.Name);
     }
 
+    for (const screeningPrice of screeningPrices) {
+      await insertScreeningPrice(
+        screeningPrice.TicketPrice,
+        screeningPrice.VipTicketPrice,
+        screeningPrice.ScreeningId
+      );
+    }
     for (const productInStorage of productsInStorage) {
       await insertProductInStorage(
         productInStorage.ProductId,
@@ -161,7 +205,6 @@ async function insertData({ cinemas,
       );
     }
 
-
     for (const productInOrder of productsInOrder) {
       await insertProductInOrder(
         productInOrder.ProductId,
@@ -171,18 +214,18 @@ async function insertData({ cinemas,
       );
     }
 
-    // Insert ProductPlacements  
+    // Insert ProductPlacements
     for (const productPlacement of productPlacements) {
       await insertProductPlacement(
         productPlacement.EmployeeId,
         productPlacement.ProductInStorageId,
         productPlacement.ProductInOrderId,
         productPlacement.Quantity,
-        productPlacement.PlacementDate,
+        productPlacement.PlacementDate
       );
     }
 
-    // Insert ProductChecks  
+    // Insert ProductChecks
     for (const productCheck of productChecks) {
       await insertProductCheck(
         productCheck.PaymentMethodId,
@@ -194,7 +237,7 @@ async function insertData({ cinemas,
       );
     }
 
-    // Insert ProductCheckDetails  
+    // Insert ProductCheckDetails
     for (const productCheckDetail of productCheckDetails) {
       await insertProductCheckDetail(
         productCheckDetail.ProductCheckId,
@@ -203,7 +246,6 @@ async function insertData({ cinemas,
       );
     }
 
-
     console.log("All data inserted successfully");
   } catch (error) {
     console.error("Error inserting data:", error);
@@ -211,9 +253,6 @@ async function insertData({ cinemas,
     await sql.close();
   }
 }
-
-
-
 
 const insertCity = async (city) => {
   try {
@@ -225,15 +264,15 @@ const insertCity = async (city) => {
   }
 };
 
-
-
 const insertPublisher = async (name) => {
   try {
     const request = new sql.Request();
-    await request.query(`INSERT INTO Publishers (Publisher) VALUES ('${name}')`);
+    await request.query(
+      `INSERT INTO Publishers (Publisher) VALUES ('${name}')`
+    );
     // console.log('Publisher inserted successfully');
   } catch (err) {
-    console.error('Error inserting publisher:', err);
+    console.error("Error inserting publisher:", err);
   }
 };
 
@@ -246,7 +285,7 @@ const insertPaymentMethod = async (paymentMethod) => {
       `);
     // console.log(`Метод оплати '${paymentMethod}' успішно додано.`);
   } catch (err) {
-    console.error('Помилка додавання методу оплати:', err);
+    console.error("Помилка додавання методу оплати:", err);
   }
 };
 
@@ -256,9 +295,9 @@ const insertCinema = async (name, cityId, address) => {
     const request = pool.request();
 
     // Додаємо параметри без ризику синтаксичних помилок
-    request.input('name', sql.NVarChar, name);
-    request.input('cityId', sql.Int, cityId);
-    request.input('address', sql.NVarChar, address);
+    request.input("name", sql.NVarChar, name);
+    request.input("cityId", sql.Int, cityId);
+    request.input("address", sql.NVarChar, address);
 
     await request.query(`
         INSERT INTO Cinemas (Name, CityId, Address) 
@@ -267,10 +306,9 @@ const insertCinema = async (name, cityId, address) => {
 
     // console.log('Cinema inserted successfully');
   } catch (err) {
-    console.error('Error inserting cinema:', err);
+    console.error("Error inserting cinema:", err);
   }
 };
-
 
 const insertHall = async (cinemaId, hallNumber, hallTechnologiesId) => {
   try {
@@ -281,12 +319,18 @@ const insertHall = async (cinemaId, hallNumber, hallTechnologiesId) => {
       `);
     // console.log('Hall inserted successfully');
   } catch (err) {
-    console.error('Error inserting hall:', err);
+    console.error("Error inserting hall:", err);
   }
 };
 
-
-const insertEmployee = async (cinemaId, name, surname, cellNumber, email, position) => {
+const insertEmployee = async (
+  cinemaId,
+  name,
+  surname,
+  cellNumber,
+  email,
+  position
+) => {
   try {
     const request = new sql.Request();
 
@@ -294,7 +338,7 @@ const insertEmployee = async (cinemaId, name, surname, cellNumber, email, positi
     const positionQuery = `
         SELECT EmployeePositionId FROM EmployeePositions WHERE EmployeePosition = @Position
     `;
-    request.input('Position', sql.VarChar(50), position);
+    request.input("Position", sql.VarChar(50), position);
     const positionResult = await request.query(positionQuery);
 
     if (positionResult.recordset.length === 0) {
@@ -304,26 +348,25 @@ const insertEmployee = async (cinemaId, name, surname, cellNumber, email, positi
     const positionId = positionResult.recordset[0].EmployeePositionId;
 
     // Додаємо працівника з отриманим PositionId
-    request.input('Name', sql.VarChar(50), name);
-    request.input('Surname', sql.VarChar(50), surname);
-    request.input('CellNumber', sql.VarChar(20), cellNumber);
-    request.input('Email', sql.VarChar(100), email);
-    request.input('CinemaId', sql.Int, cinemaId);
-    request.input('EmployeePositionId', sql.Int, positionId);
+    request.input("Name", sql.VarChar(50), name);
+    request.input("Surname", sql.VarChar(50), surname);
+    request.input("CellNumber", sql.VarChar(20), cellNumber);
+    request.input("Email", sql.VarChar(100), email);
+    request.input("CinemaId", sql.Int, cinemaId);
+    request.input("EmployeePositionId", sql.Int, positionId);
+    request.input("PasswordHash", sql.VarChar(255), "");
 
     const query = `
-        INSERT INTO Employees (Name, Surname, CellNumber, Email, CinemaId, EmployeePositionId)
-        VALUES (@Name, @Surname, @CellNumber, @Email, @CinemaId, @EmployeePositionId)
+        INSERT INTO Employees (Name, Surname, CellNumber, Email, CinemaId, EmployeePositionId, PasswordHash)
+        VALUES (@Name, @Surname, @CellNumber, @Email, @CinemaId, @EmployeePositionId, @PasswordHash)
     `;
 
     await request.query(query);
-    console.log('Employee inserted successfully');
+    console.log("Employee inserted successfully");
   } catch (err) {
-    console.error('Error inserting employee:', err);
+    console.error("Error inserting employee:", err);
   }
 };
-
-
 
 const insertClient = async (name, surname, cellNumber, email) => {
   try {
@@ -333,19 +376,19 @@ const insertClient = async (name, surname, cellNumber, email) => {
     const checkQuery = `
         SELECT COUNT(*) as count FROM Clients WHERE Email = @Email
       `;
-    request.input('Email', sql.VarChar, email);
+    request.input("Email", sql.VarChar, email);
 
     const result = await request.query(checkQuery);
 
     if (result.recordset[0].count > 0) {
-      console.log('Client with this email already exists.');
+      console.log("Client with this email already exists.");
       return; // Stop execution if the email exists
     }
 
     // Set input parameters for the insert query
-    request.input('Name', sql.VarChar, name);
-    request.input('Surname', sql.VarChar, surname);
-    request.input('CellNumber', sql.VarChar, cellNumber);
+    request.input("Name", sql.VarChar, name);
+    request.input("Surname", sql.VarChar, surname);
+    request.input("CellNumber", sql.VarChar, cellNumber);
 
     const insertQuery = `
         INSERT INTO Clients (Name, Surname, CellNumber, Email) 
@@ -355,22 +398,21 @@ const insertClient = async (name, surname, cellNumber, email) => {
     await request.query(insertQuery);
     // console.log('Client inserted successfully');
   } catch (err) {
-    console.error('Error inserting client:', err);
+    console.error("Error inserting client:", err);
   }
 };
-
 
 const insertLanguage = async (language) => {
   try {
     const request = new sql.Request();
-    request.input('Language', sql.VarChar, language);
+    request.input("Language", sql.VarChar, language);
     await request.query(`
         INSERT INTO Languages (Language) 
         VALUES (@Language)
       `);
     // console.log('Language inserted successfully:', language);
   } catch (err) {
-    console.error('Error inserting language:', err);
+    console.error("Error inserting language:", err);
   }
 };
 
@@ -383,7 +425,7 @@ const insertCountry = async (country) => {
       `);
     // console.log('Country inserted successfully');
   } catch (err) {
-    console.error('Error inserting country:', err);
+    console.error("Error inserting country:", err);
   }
 };
 
@@ -396,7 +438,7 @@ const insertAgeRestriction = async (ageRestriction) => {
       `);
     // console.log('Age restriction inserted successfully');
   } catch (err) {
-    console.error('Error inserting age restriction:', err);
+    console.error("Error inserting age restriction:", err);
   }
 };
 
@@ -409,7 +451,7 @@ const insertGenre = async (genre) => {
       `);
     // console.log('Genre inserted successfully');
   } catch (err) {
-    console.error('Error inserting genre:', err);
+    console.error("Error inserting genre:", err);
   }
 };
 
@@ -418,7 +460,7 @@ const insertHallTechnology = async (hallTechnology) => {
     const request = new sql.Request();
 
     // Перевіряємо, чи існує запис із таким hallTechnology
-    request.input('hallTechnology', sql.VarChar, hallTechnology);
+    request.input("hallTechnology", sql.VarChar, hallTechnology);
     let checkQuery = `SELECT HallTechnologyId FROM HallTechnologies WHERE HallTechnology = @hallTechnology`;
     let result = await request.query(checkQuery);
 
@@ -436,19 +478,38 @@ const insertHallTechnology = async (hallTechnology) => {
 
       let insertResult = await request.query(insertQuery);
       hallTechnologyId = insertResult.recordset[0].HallTechnologyId;
-      console.log('Hall technology inserted successfully.');
+      console.log("Hall technology inserted successfully.");
     } else {
       hallTechnologyId = result.recordset[0].HallTechnologyId;
       console.log(`HallTechnology "${hallTechnology}" вже існує.`);
     }
 
     return hallTechnologyId; // Повертаємо ID для використання при вставці в Halls
-
   } catch (err) {
-    console.error('Error inserting hall technology:', err);
+    console.error("Error inserting hall technology:", err);
   }
 };
 
+const insertScreeningPrice = async (
+  ticketPrice,
+  vipTicketPrice,
+  screeningId
+) => {
+  try {
+    const request = new sql.Request();
+    request.input("TicketPrice", sql.Int, ticketPrice);
+    request.input("VipTicketPrice", sql.Int, vipTicketPrice);
+    request.input("ScreeningId", sql.Int, screeningId);
+
+    await request.query(`
+      INSERT INTO ScreeningPrices (TicketPrice, VipTicketPrice, ScreeningId) 
+      VALUES (@TicketPrice, @VipTicketPrice, @ScreeningId)
+    `);
+    // console.log('Screening price inserted successfully');
+  } catch (err) {
+    console.error("Error inserting screening price:", err);
+  }
+};
 
 const insertScreeningFormat = async (screeningFormat) => {
   try {
@@ -459,23 +520,32 @@ const insertScreeningFormat = async (screeningFormat) => {
       `);
     // console.log('Screening format inserted successfully');
   } catch (err) {
-    console.error('Error inserting screening format:', err);
+    console.error("Error inserting screening format:", err);
   }
 };
 
-const insertMovie = async (name, countriesId, ageRestrictionsId, publishersId, runtime, description, budget, languagesId) => {
+const insertMovie = async (
+  name,
+  countriesId,
+  ageRestrictionsId,
+  publishersId,
+  runtime,
+  description,
+  budget,
+  languagesId
+) => {
   try {
     const request = new sql.Request();
 
     // Set input parameters using appropriate SQL types
-    request.input('Name', sql.NVarChar(255), name); // Assuming name has a max length of 255
-    request.input('CountriesId', sql.Int, countriesId);
-    request.input('AgeRestrictionsId', sql.Int, ageRestrictionsId);
-    request.input('PublishersId', sql.Int, publishersId);
-    request.input('Runtime', sql.Int, runtime);
-    request.input('Description', sql.NVarChar(sql.MAX), description); // Use nvarchar(MAX) for large text
-    request.input('Budget', sql.Decimal(18, 2), budget);
-    request.input('LanguagesId', sql.Int, languagesId);
+    request.input("Name", sql.NVarChar(255), name); // Assuming name has a max length of 255
+    request.input("CountriesId", sql.Int, countriesId);
+    request.input("AgeRestrictionsId", sql.Int, ageRestrictionsId);
+    request.input("PublishersId", sql.Int, publishersId);
+    request.input("Runtime", sql.Int, runtime);
+    request.input("Description", sql.NVarChar(sql.MAX), description); // Use nvarchar(MAX) for large text
+    request.input("Budget", sql.Decimal(18, 2), budget);
+    request.input("LanguagesId", sql.Int, languagesId);
 
     const query = `
         INSERT INTO Movies (Name, CountryId, AgeRestrictionId, PublisherId, Runtime, Description, Budget, LanguageId) 
@@ -485,24 +555,28 @@ const insertMovie = async (name, countriesId, ageRestrictionsId, publishersId, r
     await request.query(query);
     // console.log('Movie inserted successfully');
   } catch (err) {
-    console.error('Error inserting movie:', err);
+    console.error("Error inserting movie:", err);
   }
 };
-
-
 
 const insertRun = async (startDate, endDate, movieId) => {
   try {
     const request = new sql.Request();
 
     // Assuming startDate and endDate are JavaScript Date objects
-    const formattedStartDate = startDate.toISOString().slice(0, 19).replace('T', ' '); // Convert to YYYY-MM-DD HH:MM:SS
-    const formattedEndDate = endDate.toISOString().slice(0, 19).replace('T', ' '); // Convert to YYYY-MM-DD HH:MM:SS
+    const formattedStartDate = startDate
+      .toISOString()
+      .slice(0, 19)
+      .replace("T", " "); // Convert to YYYY-MM-DD HH:MM:SS
+    const formattedEndDate = endDate
+      .toISOString()
+      .slice(0, 19)
+      .replace("T", " "); // Convert to YYYY-MM-DD HH:MM:SS
 
     // Set input parameters
-    request.input('StartDate', sql.DateTime, formattedStartDate);
-    request.input('EndDate', sql.DateTime, formattedEndDate);
-    request.input('MovieId', sql.Int, movieId);
+    request.input("StartDate", sql.DateTime, formattedStartDate);
+    request.input("EndDate", sql.DateTime, formattedEndDate);
+    request.input("MovieId", sql.Int, movieId);
 
     const query = `
         INSERT INTO Runs (StartDate, EndDate, MovieId) 
@@ -512,40 +586,53 @@ const insertRun = async (startDate, endDate, movieId) => {
     await request.query(query);
     // console.log('Run inserted successfully');
   } catch (err) {
-    console.error('Error inserting run:', err);
+    console.error("Error inserting run:", err);
   }
 };
 
-
-const insertScreening = async (screeningFormatsId, hallsId, runsId, languagesId, startDate, startTime, endTime) => {
+const insertScreening = async (
+  screeningFormatsId,
+  hallsId,
+  runsId,
+  languagesId,
+  startDate,
+  startTime,
+  endTime
+) => {
   try {
     const request = new sql.Request();
 
     // Ensure `startDate` is valid
     const startDateObj = new Date(startDate);
     if (isNaN(startDateObj)) throw new Error(`Invalid StartDate: ${startDate}`);
-    const formattedStartDate = startDateObj.toISOString().split('T')[0];
+    const formattedStartDate = startDateObj.toISOString().split("T")[0];
 
     // Log values before processing
     // console.log("startTime:", startTime, "endTime:", endTime);
 
     // Check if startTime and endTime are valid time values
-    if (typeof startTime !== 'string' || !/^\d{2}:\d{2}(:\d{2})?$/.test(startTime)) {
+    if (
+      typeof startTime !== "string" ||
+      !/^\d{2}:\d{2}(:\d{2})?$/.test(startTime)
+    ) {
       throw new Error(`Invalid startTime format: ${startTime}`);
     }
 
-    if (typeof endTime !== 'string' || !/^\d{2}:\d{2}(:\d{2})?$/.test(endTime)) {
+    if (
+      typeof endTime !== "string" ||
+      !/^\d{2}:\d{2}(:\d{2})?$/.test(endTime)
+    ) {
       throw new Error(`Invalid endTime format: ${endTime}`);
     }
 
     // Set input parameters
-    request.input('ScreeningFormatsId', sql.Int, screeningFormatsId);
-    request.input('HallsId', sql.Int, hallsId);
-    request.input('RunsId', sql.Int, runsId);
-    request.input('LanguagesId', sql.Int, languagesId);
-    request.input('StartDate', sql.Date, formattedStartDate);
-    request.input('StartTime', sql.Time, startTime);
-    request.input('EndTime', sql.Time, endTime);
+    request.input("ScreeningFormatsId", sql.Int, screeningFormatsId);
+    request.input("HallsId", sql.Int, hallsId);
+    request.input("RunsId", sql.Int, runsId);
+    request.input("LanguagesId", sql.Int, languagesId);
+    request.input("StartDate", sql.Date, formattedStartDate);
+    request.input("StartTime", sql.Time, startTime);
+    request.input("EndTime", sql.Time, endTime);
 
     const query = `
         INSERT INTO Screenings (ScreeningFormatId, HallId, RunId, LanguageId, StartDate, StartTime, EndTime) 
@@ -554,36 +641,40 @@ const insertScreening = async (screeningFormatsId, hallsId, runsId, languagesId,
 
     await request.query(query);
   } catch (err) {
-    console.error('Error inserting screening:', err);
+    console.error("Error inserting screening:", err);
   }
 };
-
-
-
-
 
 const insertSeat = async (rowNumber, seatNumber, hallId, isVipCategory) => {
   try {
     const request = new sql.Request();
     await request.query(`
         INSERT INTO Seats (RowNumber, SeatNumber, HallId, IsVipCategory) 
-        VALUES (${rowNumber}, ${seatNumber}, ${hallId}, ${isVipCategory ? 1 : 0})
+        VALUES (${rowNumber}, ${seatNumber}, ${hallId}, ${
+      isVipCategory ? 1 : 0
+    })
       `);
     // console.log('Seat inserted successfully');
   } catch (err) {
-    console.error('Error inserting seat:', err);
+    console.error("Error inserting seat:", err);
   }
 };
 
-const insertCheck = async (sum, paymentMethodsId, employeeId, clientId, buyDateTime) => {
+const insertCheck = async (
+  sum,
+  paymentMethodsId,
+  employeeId,
+  clientId,
+  buyDateTime
+) => {
   try {
     const request = new sql.Request();
 
-    request.input('sum', sql.Int, sum);
-    request.input('paymentMethodsId', sql.Int, paymentMethodsId);
-    request.input('employeeId', sql.Int, employeeId);
-    request.input('clientId', sql.Int, clientId);
-    request.input('buyDateTime', sql.Date, buyDateTime);
+    request.input("sum", sql.Int, sum);
+    request.input("paymentMethodsId", sql.Int, paymentMethodsId);
+    request.input("employeeId", sql.Int, employeeId);
+    request.input("clientId", sql.Int, clientId);
+    request.input("buyDateTime", sql.DateTime, buyDateTime); // Changed to sql.DateTime
 
     await request.query(`
         INSERT INTO Checks (Sum, PaymentMethodId, EmployeeId, ClientId, BuyDateTime) 
@@ -592,12 +683,9 @@ const insertCheck = async (sum, paymentMethodsId, employeeId, clientId, buyDateT
 
     // console.log('Check inserted successfully');
   } catch (err) {
-    console.error('Error inserting check:', err);
+    console.error("Error inserting check:", err);
   }
 };
-
-
-
 
 const insertTicket = async (seatId, price, number, screeningsId) => {
   try {
@@ -608,7 +696,7 @@ const insertTicket = async (seatId, price, number, screeningsId) => {
       `);
     // console.log('Ticket inserted successfully');
   } catch (err) {
-    console.error('Error inserting ticket:', err);
+    console.error("Error inserting ticket:", err);
   }
 };
 
@@ -624,11 +712,9 @@ const insertCheckTicket = async (checkId, ticketId) => {
 
     // console.log(`CheckTicket inserted: CheckId=${checkId}, TicketId=${ticketId}`);
   } catch (err) {
-    console.error('Error inserting check ticket:', err);
+    console.error("Error inserting check ticket:", err);
   }
 };
-
-
 
 const insertMovieGenre = async (moviesId, genresId) => {
   try {
@@ -639,44 +725,43 @@ const insertMovieGenre = async (moviesId, genresId) => {
       `);
     // console.log('Movie genre inserted successfully');
   } catch (err) {
-    console.error('Error inserting movie genre:', err);
+    console.error("Error inserting movie genre:", err);
   }
 };
 
 const insertProductType = async (ProductType) => {
   try {
     const request = new sql.Request();
-    request.input('ProductType', sql.VarChar, ProductType); // Use the correct data type
-    await request.query('INSERT INTO ProductTypes (ProductType) VALUES (@ProductType)');
+    request.input("ProductType", sql.VarChar, ProductType); // Use the correct data type
+    await request.query(
+      "INSERT INTO ProductTypes (ProductType) VALUES (@ProductType)"
+    );
+  } catch (err) {
+    console.log("Error inserting product type", err);
   }
-  catch (err) {
-    console.log('Error inserting product type', err);
-  }
-}
-
+};
 
 const insertDeliveryOrderStatus = async (status) => {
   try {
     const request = new sql.Request();
-    request.input('status', sql.VarChar, status); // Use the correct data type
-    await request.query('INSERT INTO DeliveryOrderStatuses (DeliveryOrderStatus) VALUES (@status)');
+    request.input("status", sql.VarChar, status); // Use the correct data type
+    await request.query(
+      "INSERT INTO DeliveryOrderStatuses (DeliveryOrderStatus) VALUES (@status)"
+    );
+  } catch (err) {
+    console.log("Error inserting delivery order status", err);
   }
-  catch (err) {
-    console.log('Error inserting delivery order status', err);
-  }
-}
-
-
+};
 
 const insertSupplier = async (name, surname, cellNumber, email) => {
   try {
     const request = new sql.Request();
 
     // Use parameters to avoid unclosed quotation issues
-    request.input('Name', sql.VarChar(255), name);
-    request.input('Surname', sql.VarChar(255), surname);
-    request.input('CellNumber', sql.VarChar(50), cellNumber);
-    request.input('Email', sql.VarChar(255), email);
+    request.input("Name", sql.VarChar(255), name);
+    request.input("Surname", sql.VarChar(255), surname);
+    request.input("CellNumber", sql.VarChar(50), cellNumber);
+    request.input("Email", sql.VarChar(255), email);
 
     const query = `
         INSERT INTO Suppliers (Name, Surname, CellNumber, Email)
@@ -686,25 +771,32 @@ const insertSupplier = async (name, surname, cellNumber, email) => {
     await request.query(query);
     // console.log('Supplier inserted successfully');
   } catch (err) {
-    console.error('Error inserting supplier:', err);
+    console.error("Error inserting supplier:", err);
   }
 };
 
-
-
-const insertDeliveryOrder = async (deliveryOrderStatusId, paymentMethodId, supplierId, employeeId, number, sum, orderDateTime, endDateTime) => {
+const insertDeliveryOrder = async (
+  deliveryOrderStatusId,
+  paymentMethodId,
+  supplierId,
+  employeeId,
+  number,
+  sum,
+  orderDateTime,
+  endDateTime
+) => {
   try {
     const request = new sql.Request();
 
     // Використовуємо параметри для безпечного виконання запиту
-    request.input('DeliveryOrderStatusId', sql.Int, deliveryOrderStatusId);
-    request.input('PaymentMethodId', sql.Int, paymentMethodId);
-    request.input('SupplierId', sql.Int, supplierId);
-    request.input('EmployeeId', sql.Int, employeeId);
-    request.input('Number', sql.Int, number);
-    request.input('Sum', sql.Int, sum);
-    request.input('OrderDateTime', sql.DateTime, orderDateTime);
-    request.input('EndDateTime', sql.DateTime, endDateTime); // Додаємо параметр EndDateTime
+    request.input("DeliveryOrderStatusId", sql.Int, deliveryOrderStatusId);
+    request.input("PaymentMethodId", sql.Int, paymentMethodId);
+    request.input("SupplierId", sql.Int, supplierId);
+    request.input("EmployeeId", sql.Int, employeeId);
+    request.input("Number", sql.Int, number);
+    request.input("Sum", sql.Int, sum);
+    request.input("OrderDateTime", sql.DateTime, orderDateTime);
+    request.input("EndDateTime", sql.DateTime, endDateTime); // Додаємо параметр EndDateTime
 
     const query = `
         INSERT INTO DeliveryOrders (DeliveryOrderStatusId, PaymentMethodId, SupplierId, EmployeeId, Number, Sum, OrderDateTime, EndDateTime)
@@ -714,19 +806,18 @@ const insertDeliveryOrder = async (deliveryOrderStatusId, paymentMethodId, suppl
     await request.query(query);
     // console.log('Delivery order inserted successfully');
   } catch (err) {
-    console.error('Error inserting delivery order:', err);
+    console.error("Error inserting delivery order:", err);
   }
 };
-
 
 const insertProduct = async (productTypeId, price, name) => {
   try {
     const request = new sql.Request();
 
     // Use parameters to avoid unclosed quotation issues
-    request.input('ProductTypeId', sql.Int, productTypeId);
-    request.input('Price', sql.Int, price);
-    request.input('Name', sql.VarChar(255), name);
+    request.input("ProductTypeId", sql.Int, productTypeId);
+    request.input("Price", sql.Int, price);
+    request.input("Name", sql.VarChar(255), name);
 
     const query = `
         INSERT INTO Products (ProductTypeId, Price, Name)
@@ -736,20 +827,26 @@ const insertProduct = async (productTypeId, price, name) => {
     await request.query(query);
     // console.log('Product inserted successfully');
   } catch (err) {
-    console.error('Error inserting product:', err);
+    console.error("Error inserting product:", err);
   }
 };
 
-const insertProductInStorage = async (productId, cinemaId, productionDate, expirationDate, quantity) => {
+const insertProductInStorage = async (
+  productId,
+  cinemaId,
+  productionDate,
+  expirationDate,
+  quantity
+) => {
   try {
     const request = new sql.Request();
 
     // Use parameters to avoid unclosed quotation issues
-    request.input('ProductId', sql.Int, productId);
-    request.input('CinemaId', sql.Int, cinemaId);
-    request.input('ProductionDate', sql.DateTime, productionDate);
-    request.input('ExpirationDate', sql.DateTime, expirationDate);
-    request.input('Quantity', sql.Int, quantity);
+    request.input("ProductId", sql.Int, productId);
+    request.input("CinemaId", sql.Int, cinemaId);
+    request.input("ProductionDate", sql.DateTime, productionDate);
+    request.input("ExpirationDate", sql.DateTime, expirationDate);
+    request.input("Quantity", sql.Int, quantity);
 
     const query = `
         INSERT INTO ProductsInStorage (ProductId, CinemaId, ProductionDate, ExpirationDate, Quantity)
@@ -759,17 +856,22 @@ const insertProductInStorage = async (productId, cinemaId, productionDate, expir
     await request.query(query);
     // console.log('Product in storage inserted successfully');
   } catch (err) {
-    console.error('Error inserting product in storage:', err);
+    console.error("Error inserting product in storage:", err);
   }
 };
 
-const insertProductInOrder = async (productId, deliveryOrderId, quantity, price) => {
+const insertProductInOrder = async (
+  productId,
+  deliveryOrderId,
+  quantity,
+  price
+) => {
   try {
     const request = new sql.Request();
-    request.input('ProductId', sql.Int, productId);
-    request.input('DeliveryOrderId', sql.Int, deliveryOrderId);
-    request.input('Quantity', sql.Int, quantity);
-    request.input('Price', sql.Int, price);
+    request.input("ProductId", sql.Int, productId);
+    request.input("DeliveryOrderId", sql.Int, deliveryOrderId);
+    request.input("Quantity", sql.Int, quantity);
+    request.input("Price", sql.Int, price);
 
     const query = `
             INSERT INTO ProductsInOrder (ProductId, DeliveryOrderId, Quantity, Price)
@@ -779,19 +881,24 @@ const insertProductInOrder = async (productId, deliveryOrderId, quantity, price)
     await request.query(query);
     // console.log('ProductInOrder inserted successfully');
   } catch (err) {
-    console.error('Error inserting ProductInOrder:', err);
+    console.error("Error inserting ProductInOrder:", err);
   }
 };
 
-
-const insertProductPlacement = async (employeeId, productInStorageId, productInOrderId, quantity, placementDate) => {
+const insertProductPlacement = async (
+  employeeId,
+  productInStorageId,
+  productInOrderId,
+  quantity,
+  placementDate
+) => {
   try {
     const request = new sql.Request();
-    request.input('EmployeeId', sql.Int, employeeId);
-    request.input('ProductInStorageId', sql.Int, productInStorageId);
-    request.input('ProductInOrderId', sql.Int, productInOrderId);
-    request.input('Quantity', sql.Int, quantity);
-    request.input('PlacementDate', sql.DateTime, placementDate);
+    request.input("EmployeeId", sql.Int, employeeId);
+    request.input("ProductInStorageId", sql.Int, productInStorageId);
+    request.input("ProductInOrderId", sql.Int, productInOrderId);
+    request.input("Quantity", sql.Int, quantity);
+    request.input("PlacementDate", sql.DateTime, placementDate);
 
     const query = `
           INSERT INTO ProductPlacements (EmployeeId, ProductInStorageId, ProductInOrderId, Quantity, PlacementDate)
@@ -801,20 +908,26 @@ const insertProductPlacement = async (employeeId, productInStorageId, productInO
     await request.query(query);
     // console.log('ProductPlacement inserted successfully');
   } catch (err) {
-    console.error('Error inserting ProductPlacement:', err);
+    console.error("Error inserting ProductPlacement:", err);
   }
 };
 
-
-const insertProductCheck = async (paymentMethodId, clientId, employeeId, number, sum, buyTime) => {
+const insertProductCheck = async (
+  paymentMethodId,
+  clientId,
+  employeeId,
+  number,
+  sum,
+  buyTime
+) => {
   try {
     const request = new sql.Request();
-    request.input('PaymentMethodId', sql.Int, paymentMethodId);
-    request.input('ClientId', sql.Int, clientId);
-    request.input('EmployeeId', sql.Int, employeeId);
-    request.input('Number', sql.Int, number);
-    request.input('Sum', sql.Int, sum);
-    request.input('BuyTime', sql.DateTime, buyTime);
+    request.input("PaymentMethodId", sql.Int, paymentMethodId);
+    request.input("ClientId", sql.Int, clientId);
+    request.input("EmployeeId", sql.Int, employeeId);
+    request.input("Number", sql.Int, number);
+    request.input("Sum", sql.Int, sum);
+    request.input("BuyTime", sql.DateTime, buyTime);
 
     const query = `
           INSERT INTO ProductChecks (PaymentMethodId, ClientId, EmployeeId, Number, Sum, BuyTime)
@@ -824,16 +937,20 @@ const insertProductCheck = async (paymentMethodId, clientId, employeeId, number,
     await request.query(query);
     // console.log('ProductCheck inserted successfully');
   } catch (err) {
-    console.error('Error inserting ProductCheck:', err);
+    console.error("Error inserting ProductCheck:", err);
   }
 };
 
-const insertProductCheckDetail = async (productCheckId, productInStorageId, quantity) => {
+const insertProductCheckDetail = async (
+  productCheckId,
+  productInStorageId,
+  quantity
+) => {
   try {
     const request = new sql.Request();
-    request.input('ProductCheckId', sql.Int, productCheckId);
-    request.input('ProductInStorageId', sql.Int, productInStorageId);
-    request.input('Quantity', sql.Int, quantity);
+    request.input("ProductCheckId", sql.Int, productCheckId);
+    request.input("ProductInStorageId", sql.Int, productInStorageId);
+    request.input("Quantity", sql.Int, quantity);
 
     const query = `
           INSERT INTO ProductCheckDetails (ProductCheckId, ProductInStorageId, Quantity)
@@ -843,16 +960,14 @@ const insertProductCheckDetail = async (productCheckId, productInStorageId, quan
     await request.query(query);
     // console.log('ProductCheckDetail inserted successfully');
   } catch (err) {
-    console.error('Error inserting ProductCheckDetail:', err);
+    console.error("Error inserting ProductCheckDetail:", err);
   }
 };
-
 
 const insertEmployeePosition = async (EmployeePosition) => {
   try {
     const request = new sql.Request();
-    request.input('EmployeePosition', sql.VarChar(255), EmployeePosition);
-
+    request.input("EmployeePosition", sql.VarChar(255), EmployeePosition);
 
     const query = `
     INSERT INTO EmployeePositions (EmployeePosition)
@@ -862,10 +977,10 @@ const insertEmployeePosition = async (EmployeePosition) => {
     await request.query(query);
     // console.log('ProductCheckDetail inserted successfully');
   } catch (err) {
-    console.error('Error inserting EmployeePosition:', err);
+    console.error("Error inserting EmployeePosition:", err);
   }
-}
+};
 // Exporting all the functions
 module.exports = {
-  insertData
+  insertData,
 };
