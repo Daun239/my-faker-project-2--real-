@@ -1,5 +1,5 @@
 ﻿-- Видалення таблиць у правильному порядку
-Drop Table if exists ScreeningPrices;
+
 DROP TABLE IF EXISTS ProductCheckDetails;
 DROP TABLE IF EXISTS ProductChecks;
 DROP TABLE IF EXISTS ProductPlacements;
@@ -11,6 +11,8 @@ DROP TABLE IF EXISTS Suppliers;
 DROP TABLE IF EXISTS CheckTickets;
 DROP TABLE IF EXISTS Tickets;
 DROP TABLE IF EXISTS Seats;
+Drop Table IF Exists ScreeningPrices;
+DROP TABLE IF EXISTS SeatCategories;
 DROP TABLE IF EXISTS Screenings;
 DROP TABLE IF EXISTS Runs;
 DROP TABLE IF EXISTS Checks;
@@ -32,6 +34,9 @@ DROP TABLE IF EXISTS Cities;
 DROP TABLE IF EXISTS ProductTypes;
 DROP TABLE IF EXISTS DeliveryOrderStatuses;
 DROP TABLE IF EXISTS EmployeePositions;
+
+
+
 
 
 create table DeliveryOrderStatuses(
@@ -184,6 +189,8 @@ CREATE TABLE Movies (
     FOREIGN KEY (AgeRestrictionId) REFERENCES AgeRestrictions(AgeRestrictionId)
 );
 
+
+
 CREATE TABLE Runs (
     RunId INT IDENTITY(1,1) PRIMARY KEY, 
 	MovieId int not null,
@@ -211,14 +218,22 @@ CREATE TABLE Screenings (
     FOREIGN KEY (LanguageId) REFERENCES Languages(LanguageId)
 );
 
-Create Table ScreeningPrices (
-	ScreeningPricingId int identity(1,1) primary key,
-	TicketPrice int check(ticketPrice >= 0),
-	VipTicketPrice int check (VipTicketPrice >= 0),
-	ScreeningId int,
+Create Table SeatCategories (
+SeatCategoryId int identity(1,1) Primary Key,
+SeatCategory varchar(255) not null,
 	CreateDateTime DATETIME DEFAULT GETDATE(),
     UpdateDateTime DATETIME NULL,
-	Foreign Key (ScreeningId) References Screenings(ScreeningId)
+)
+
+Create Table ScreeningPrices (
+	ScreeningPriceId int identity(1,1) primary key,
+	TicketPrice int check(ticketPrice >= 0),
+	ScreeningId int not null,
+	SeatCategoryId int not null,
+	CreateDateTime DATETIME DEFAULT GETDATE(),
+    UpdateDateTime DATETIME NULL,
+	Foreign Key (ScreeningId) References Screenings(ScreeningId),
+	Foreign Key (SeatCategoryId) References SeatCategories(SeatCategoryId),
 )
 
 CREATE TABLE Seats (
@@ -226,10 +241,11 @@ CREATE TABLE Seats (
     RowNumber INT CHECK (RowNumber > 0),
     SeatNumber INT CHECK (SeatNumber > 0),
     HallId INT NOT NULL,
-    IsVipCategory BIT,
+    SeatCategoryId INT NOT NULL,
     CreateDateTime DATETIME DEFAULT GETDATE(),
     UpdateDateTime DATETIME NULL,
-    FOREIGN KEY (HallId) REFERENCES Halls(HallId)
+    FOREIGN KEY (HallId) REFERENCES Halls(HallId),
+	FOREIGN KEY (SeatCategoryId) REFERENCES SeatCategories(SeatCategoryId),
 );
 
 CREATE TABLE Checks (
@@ -249,13 +265,13 @@ CREATE TABLE Checks (
 CREATE TABLE Tickets (
     TicketId INT IDENTITY(1,1) PRIMARY KEY, 
     SeatId INT NOT NULL,
-	ScreeningId INT NOT NULL,
-    Price INT CHECK (Price >= 0),
+	ScreeningPriceId INT NOT NULL,
     Number INT CHECK (Number > 0),
     CreateDateTime DATETIME DEFAULT GETDATE(),
     UpdateDateTime DATETIME NULL,
     FOREIGN KEY (SeatId) REFERENCES Seats(SeatId),
-    FOREIGN KEY (ScreeningId) REFERENCES Screenings(ScreeningId)
+    FOREIGN KEY (ScreeningId) REFERENCES Screenings(ScreeningId),
+	Foreign Key (ScreeningPriceId) References ScreeningPrices(ScreeningPriceId),
 );
 
 CREATE TABLE CheckTickets (
