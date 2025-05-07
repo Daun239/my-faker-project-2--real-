@@ -11,6 +11,7 @@ const {
   ProductTypes,
   DeliveryOrderStatuses,
   EmployeePositions,
+  SeatCategories,
 } = require("./Classifiers");
 
 sql.connect(config, async function (err) {
@@ -157,6 +158,7 @@ sql.connect(config, async function (err) {
         productCheckDetails,
         EmployeePositions,
         screeningPrices,
+        SeatCategories,
       });
       console.log("All operations completed successfully.");
     }

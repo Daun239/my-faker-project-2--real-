@@ -148,7 +148,7 @@ CREATE TABLE Halls (
 
 CREATE TABLE Employees (
     EmployeeId INT IDENTITY(1,1) PRIMARY KEY, 
-    CinemaId INT NOT NULL,
+    CinemaId INT,
 	EmployeePositionId INT Not Null,
     Name VARCHAR(255),
     Surname VARCHAR(255),
@@ -270,7 +270,6 @@ CREATE TABLE Tickets (
     CreateDateTime DATETIME DEFAULT GETDATE(),
     UpdateDateTime DATETIME NULL,
     FOREIGN KEY (SeatId) REFERENCES Seats(SeatId),
-    FOREIGN KEY (ScreeningId) REFERENCES Screenings(ScreeningId),
 	Foreign Key (ScreeningPriceId) References ScreeningPrices(ScreeningPriceId),
 );
 

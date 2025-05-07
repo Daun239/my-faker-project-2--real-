@@ -36,11 +36,16 @@ async function insertData({
   productCheckDetails,
   EmployeePositions,
   screeningPrices,
+  SeatCategories,
 }) {
   try {
     await sql.connect(config);
 
     console.log("Began inserting");
+
+    for (const seatCategory of SeatCategories) {
+      await insertSeatCategory(seatCategory.SeatCategory);
+    }
 
     for (const employeePosition of EmployeePositions) {
       await insertEmployeePosition(employeePosition.Position);
@@ -114,12 +119,21 @@ async function insertData({
         screening.EndTime
       );
     }
+
+    for (const screeningPrice of screeningPrices) {
+      await insertScreeningPrice(
+        screeningPrice.TicketPrice,
+        screeningPrice.ScreeningId,
+        screeningPrice.SeatCategoryId
+      );
+    }
+
     for (const seat of seats) {
       await insertSeat(
         seat.RowNumber,
         seat.SeatNumber,
         seat.HallId,
-        seat.IsVipCategory
+        seat.SeatCategoryId
       );
     }
     for (const client of clients) {
@@ -131,12 +145,7 @@ async function insertData({
       );
     }
     for (const ticket of tickets) {
-      await insertTicket(
-        ticket.SeatId,
-        ticket.Price,
-        ticket.Number,
-        ticket.ScreeningsId
-      );
+      await insertTicket(ticket.SeatId, ticket.ScreeningPriceId, ticket.Number);
     }
     for (const check of checks) {
       await insertCheck(
@@ -188,13 +197,6 @@ async function insertData({
       await insertProduct(product.ProductTypeId, product.Price, product.Name);
     }
 
-    for (const screeningPrice of screeningPrices) {
-      await insertScreeningPrice(
-        screeningPrice.TicketPrice,
-        screeningPrice.VipTicketPrice,
-        screeningPrice.ScreeningId
-      );
-    }
     for (const productInStorage of productsInStorage) {
       await insertProductInStorage(
         productInStorage.ProductId,
@@ -490,20 +492,35 @@ const insertHallTechnology = async (hallTechnology) => {
   }
 };
 
+const insertSeatCategory = async (seatCategory) => {
+  try {
+    const request = new sql.Request();
+    request.input("SeatCategory", sql.NVarChar(255), seatCategory);
+
+    await request.query(`
+      INSERT INTO SeatCategories (SeatCategory) 
+      VALUES (@SeatCategory)
+    `);
+    // console.log('Screening price inserted successfully');
+  } catch (err) {
+    console.error("Error inserting screening price:", err);
+  }
+};
+
 const insertScreeningPrice = async (
   ticketPrice,
-  vipTicketPrice,
-  screeningId
+  screeningId,
+  seatCategoryId
 ) => {
   try {
     const request = new sql.Request();
     request.input("TicketPrice", sql.Int, ticketPrice);
-    request.input("VipTicketPrice", sql.Int, vipTicketPrice);
     request.input("ScreeningId", sql.Int, screeningId);
+    request.input("SeatCategoryId", sql.Int, seatCategoryId);
 
     await request.query(`
-      INSERT INTO ScreeningPrices (TicketPrice, VipTicketPrice, ScreeningId) 
-      VALUES (@TicketPrice, @VipTicketPrice, @ScreeningId)
+      INSERT INTO ScreeningPrices (TicketPrice, SeatCategoryId, ScreeningId) 
+      VALUES (@TicketPrice, @SeatCategoryId, @ScreeningId)
     `);
     // console.log('Screening price inserted successfully');
   } catch (err) {
@@ -645,14 +662,12 @@ const insertScreening = async (
   }
 };
 
-const insertSeat = async (rowNumber, seatNumber, hallId, isVipCategory) => {
+const insertSeat = async (rowNumber, seatNumber, hallId, seatCategoryId) => {
   try {
     const request = new sql.Request();
     await request.query(`
-        INSERT INTO Seats (RowNumber, SeatNumber, HallId, IsVipCategory) 
-        VALUES (${rowNumber}, ${seatNumber}, ${hallId}, ${
-      isVipCategory ? 1 : 0
-    })
+        INSERT INTO Seats (RowNumber, SeatNumber, HallId, SeatCategoryId) 
+        VALUES (${rowNumber}, ${seatNumber}, ${hallId}, ${seatCategoryId})
       `);
     // console.log('Seat inserted successfully');
   } catch (err) {
@@ -687,12 +702,12 @@ const insertCheck = async (
   }
 };
 
-const insertTicket = async (seatId, price, number, screeningsId) => {
+const insertTicket = async (seatId, screeningPriceId, number) => {
   try {
     const request = new sql.Request();
     await request.query(`
-        INSERT INTO Tickets (SeatId, Price, Number, ScreeningId) 
-        VALUES (${seatId}, ${price}, ${number}, ${screeningsId})
+        INSERT INTO Tickets (SeatId, ScreeningPriceId, Number) 
+        VALUES (${seatId}, ${screeningPriceId}, ${number})
       `);
     // console.log('Ticket inserted successfully');
   } catch (err) {

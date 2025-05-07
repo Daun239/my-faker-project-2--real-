@@ -21,6 +21,7 @@ const {
   DeliveryOrderStatuses,
   ProductTypes,
   EmployeePositions,
+  SeatCategories,
 } = require("./Classifiers");
 
 async function readMovies(rowsNumber) {
@@ -137,9 +138,9 @@ async function generateData(
   seats = generateSeats(halls, 4, 8, 5, 10);
   clients = generateClients(1400);
   const ticketPrices = [];
-  tickets = await readTickets(1000);
+  const readedTickets = await readTickets(1000);
 
-  tickets.forEach((t) => addTicket(t));
+  readedTickets.forEach((t) => addTicket(t));
 
   function addTicket(ticket) {
     ticketPrices.push({
@@ -148,7 +149,12 @@ async function generateData(
     });
   }
 
-  const screeningPrices = generateScreeningPrices(screenings, halls, seats);
+  const screeningPrices = generateScreeningPrices(
+    ticketPrices,
+    screenings,
+    halls,
+    seats
+  );
 
   tickets = generateTickets(
     4000,
@@ -317,22 +323,20 @@ const generateHalls = (cinemas) => {
   return halls;
 };
 
-const getRandomInt = (min, max) =>
-  Math.floor(Math.random() * (max - min + 1)) + min;
-
 const generateEmployees = (totalCount, cinemas) => {
   const employees = [];
   const minCashiersPerCinema = 2;
   const minWarehouseWorkersPerCinema = 1;
-  const totalManagers = 2;
+  const totalManagers = 5;
 
-  // Create a map to track employee count per cinema
   const cinemaEmployeeMap = new Map();
   cinemas.forEach((cinema) => cinemaEmployeeMap.set(cinema.CinemasId, []));
 
-  // Додаємо менеджерів (їх має бути лише два)
+  const generatePassword = () => faker.internet.password({ length: 10 });
+
+  // Менеджери
   for (let i = 0; i < totalManagers; i++) {
-    const cinemaId = getRandomItem(cinemas).CinemasId; // Випадковий кінотеатр
+    const cinemaId = getRandomItem(cinemas).CinemasId;
     const employee = {
       EmployeesId: employees.length + 1,
       CinemaId: cinemaId,
@@ -340,14 +344,14 @@ const generateEmployees = (totalCount, cinemas) => {
       Surname: faker.person.lastName(),
       CellNumber: faker.phone.number(),
       Email: faker.internet.email(),
-      PasswordHash: "123",
+      PasswordHash: generatePassword(),
       Position: "Manager",
     };
     employees.push(employee);
     cinemaEmployeeMap.get(cinemaId).push(employee);
   }
 
-  // Додаємо мінімально необхідних касирів і працівників складу до кожного кінотеатру
+  // Мінімальна кількість касирів і складу
   cinemas.forEach((cinema) => {
     const cinemaId = cinema.CinemasId;
 
@@ -359,6 +363,7 @@ const generateEmployees = (totalCount, cinemas) => {
         Surname: faker.person.lastName(),
         CellNumber: faker.phone.number(),
         Email: faker.internet.email(),
+        PasswordHash: generatePassword(),
         Position: "Cashier",
       };
       employees.push(employee);
@@ -373,6 +378,7 @@ const generateEmployees = (totalCount, cinemas) => {
         Surname: faker.person.lastName(),
         CellNumber: faker.phone.number(),
         Email: faker.internet.email(),
+        PasswordHash: generatePassword(),
         Position: "WarehouseWorker",
       };
       employees.push(employee);
@@ -380,11 +386,11 @@ const generateEmployees = (totalCount, cinemas) => {
     }
   });
 
-  // Додаємо решту співробітників випадковими ролями
-  const remainingEmployeesCount = totalCount - employees.length;
+  // Решта випадкових співробітників
+  const remainingEmployeesCount = totalCount - employees.length - 1; // -1 для адміна
   for (let i = 0; i < remainingEmployeesCount; i++) {
     const cinemaId = getRandomItem(cinemas).CinemasId;
-    const position = getRandomItem(["Cashier", "WarehouseWorker"]); // Менеджерів більше не додаємо
+    const position = getRandomItem(["Cashier", "WarehouseWorker"]);
     const employee = {
       EmployeesId: employees.length + 1,
       CinemaId: cinemaId,
@@ -392,11 +398,24 @@ const generateEmployees = (totalCount, cinemas) => {
       Surname: faker.person.lastName(),
       CellNumber: faker.phone.number(),
       Email: faker.internet.email(),
+      PasswordHash: generatePassword(),
       Position: position,
     };
     employees.push(employee);
     cinemaEmployeeMap.get(cinemaId).push(employee);
   }
+
+  // ✅ Додаємо одного адміна
+  employees.push({
+    EmployeesId: employees.length + 1,
+    CinemaId: null,
+    Name: "Admin",
+    Surname: "User",
+    CellNumber: faker.phone.number(),
+    Email: "admin@example.com",
+    PasswordHash: generatePassword(),
+    Position: "admin",
+  });
 
   return employees;
 };
@@ -500,31 +519,42 @@ const generateRuns = (movies) => {
   return runs;
 };
 
-const generateScreeningPrices = (Screenings, Halls, Seats) => {
+const generateScreeningPrices = (ticketPrices, Screenings, Halls, Seats) => {
   const screeningPrices = [];
+  let screeningPriceIdCounter = 1; // initialize counter
 
   for (let i = 0; i < Screenings.length; i++) {
     const screeningId = Screenings[i].ScreeningsId;
-
+    const randomTicket = getRandomItem(ticketPrices);
     const Hall = Halls.find((h) => h.HallsId === Screenings[i].HallsId);
-
     const seats = Seats.filter((s) => s.HallId === Hall.HallsId);
+    const isVip = seats.some((s) => s.SeatCategoryId === 2);
 
-    const isVip = seats.some((s) => s.IsVipCategory === true);
+    const TicketPrice = randomTicket.ticketPrice;
 
-    const TicketPrice = getRandomInt(50, 300);
-
-    const VipTicketPrice = isVip
-      ? Math.round(TicketPrice * getRandomNumberInRange(1.2, 2.0))
-      : null;
-
+    // Regular seat price
     const ScreeningPrice = {
+      ScreeningPriceId: screeningPriceIdCounter++,
       TicketPrice: TicketPrice,
-      VipTicketPrice: VipTicketPrice,
       ScreeningId: screeningId,
+      SeatCategoryId: 1,
     };
-
     screeningPrices.push(ScreeningPrice);
+
+    // VIP seat price
+    if (isVip) {
+      const VipTicketPrice = Math.round(
+        TicketPrice * getRandomNumberInRange(1.2, 2.0)
+      );
+
+      const ScreeningPrice2 = {
+        ScreeningPriceId: screeningPriceIdCounter++,
+        TicketPrice: VipTicketPrice,
+        ScreeningId: screeningId,
+        SeatCategoryId: 2,
+      };
+      screeningPrices.push(ScreeningPrice2);
+    }
   }
 
   return screeningPrices;
@@ -622,7 +652,7 @@ const generateSeats = (
           RowNumber: row,
           SeatNumber: seat,
           HallId: hall.HallsId,
-          IsVipCategory: vipRows.has(row), // Перевіряємо, чи ряд VIP
+          SeatCategoryId: vipRows.has(row) ? 2 : 1,
         });
       }
     }
@@ -913,20 +943,21 @@ const generateCheckTickets = (tickets, screenings, halls) => {
 };
 
 const generateTickets = (count, seats, screenings, screeningPrices) => {
-  const dollarCoefficient = 1;
   const tickets = [];
-  const usedSeats = new Map(); // Відстежує зайняті місця для кожного сеансу
-
-  let currentTicketId = 1; // окремий лічильник квитків
+  const usedSeats = new Map();
+  let currentTicketId = 1;
 
   while (tickets.length < count) {
     const screening = getRandomItem(screenings);
 
-    const screeningPrice = screeningPrices.find(
+    const pricesForScreening = screeningPrices.filter(
       (s) => s.ScreeningId === screening.ScreeningsId
     );
 
-    if (!screeningPrice) continue;
+    if (pricesForScreening.length === 0) continue;
+
+    const normalPrice = pricesForScreening.find((p) => p.SeatCategoryId === 1);
+    const vipPrice = pricesForScreening.find((p) => p.SeatCategoryId === 2);
 
     const availableSeats = seats.filter(
       (seat) =>
@@ -944,16 +975,19 @@ const generateTickets = (count, seats, screenings, screeningPrices) => {
     }
     usedSeats.get(screening.ScreeningsId).add(seat.SeatsId);
 
-    const price = seat.IsVipCategory
-      ? screeningPrice.VipTicketPrice
-      : screeningPrice.TicketPrice;
+    const screeningPriceId =
+      seat.IsVipCategory && vipPrice
+        ? vipPrice.ScreeningPriceId
+        : normalPrice?.ScreeningPriceId;
+
+    if (!screeningPriceId) continue;
 
     tickets.push({
       TicketsId: currentTicketId,
       SeatId: seat.SeatsId,
-      Price: Math.round(price * dollarCoefficient),
       Number: currentTicketId,
-      ScreeningsId: screening.ScreeningsId,
+      ScreeningPriceId: screeningPriceId,
+      ScreeningsId: screening.ScreeningsId, // додано згідно з твоїм запитом
     });
 
     currentTicketId++;
@@ -1024,7 +1058,7 @@ const generateDeliveryOrders = (
   // Вибираємо 3 унікальних менеджерів для обробки замовлень
   const employeesResponsibleForDeliveries = managers;
 
-  const successfulStatusId = 3; // Delivered
+  const successfulStatusId = 2; // Delivered
   const successfulStatuses = deliveryOrderStatuses.filter(
     (s) => s.DeliveryOrderStatusId === successfulStatusId
   );
@@ -1078,7 +1112,7 @@ const generateDeliveryOrders = (
       DeliveryOrderStatusId: deliveryStatus,
       PaymentMethodId: getRandomItem(paymentMethods).PaymentMethodsId,
       SupplierId: getRandomItem(suppliers).SupplierId,
-      EmployeeId: getRandomItem(employeesResponsibleForDeliveries), // Тільки менеджери
+      EmployeeId: getRandomItem(employeesResponsibleForDeliveries).EmployeesId, // Тільки менеджери
       Number: i + 1,
       Sum: productsInThisOrder.reduce(
         (acc, p) => acc + p.Price * p.Quantity,
@@ -1616,6 +1650,10 @@ const getRandomWeightedNumber = (weights) => {
     Array(weight).fill(parseInt(num))
   );
   return getRandomItem(weightedArray);
+};
+
+const getRandomInt = (min, max) => {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
 };
 
 module.exports = { generateData };
