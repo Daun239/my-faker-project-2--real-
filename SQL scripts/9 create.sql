@@ -34,6 +34,7 @@ DROP TABLE IF EXISTS Cities;
 DROP TABLE IF EXISTS ProductTypes;
 DROP TABLE IF EXISTS DeliveryOrderStatuses;
 DROP TABLE IF EXISTS EmployeePositions;
+DROP TABLE IF EXISTS EmployeePasswords;
 
 
 
@@ -146,20 +147,28 @@ CREATE TABLE Halls (
     FOREIGN KEY (HallTechnologyId) REFERENCES HallTechnologies(HallTechnologyId)
 );
 
+create table EmployeePasswords (
+EmployeePasswordId Int Identity(1,1) Primary Key,
+	Password NVARCHAR(255) NOT NULL,
+)
+
 CREATE TABLE Employees (
     EmployeeId INT IDENTITY(1,1) PRIMARY KEY, 
     CinemaId INT,
 	EmployeePositionId INT Not Null,
+	EmployeePasswordId Int,
     Name VARCHAR(255),
     Surname VARCHAR(255),
     CellNumber VARCHAR(20) UNIQUE,
     Email VARCHAR(255) UNIQUE,
-	PasswordHash NVARCHAR(255) NOT NULL,
     CreateDateTime DATETIME DEFAULT GETDATE(),
     UpdateDateTime DATETIME NULL,
     FOREIGN KEY (CinemaId) REFERENCES Cinemas(CinemaId),
 	Foreign Key(EmployeePositionId) References EmployeePositions(EmployeePositionId),
+	Foreign Key (EmployeePasswordId) References EmployeePasswords(EmployeePasswordId),
 );
+
+
 
 CREATE TABLE Clients (
     ClientId INT IDENTITY(1,1) PRIMARY KEY, 

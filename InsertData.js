@@ -41,7 +41,46 @@ async function insertData({
   try {
     await sql.connect(config);
 
+
+    const generatePasswords = (employeesCount) => {
+      const passwords = [];
+      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
+    
+      for (let i = 0; i < employeesCount; i++) {
+        let password = '';
+        for (let j = 0; j < 10; j++) {
+          const randomIndex = Math.floor(Math.random() * chars.length);
+          password += chars[randomIndex];
+        }
+        passwords.push({ id: i, password });
+      }
+    
+      return passwords;
+    };
+
+    const insertEmployeePassword = async (password) => {
+      const request = new sql.Request();
+    
+      // Optionally hash the password before storing
+      request.input("Password", sql.VarChar(255), password);
+    
+      const insertQuery = `
+        INSERT INTO EmployeePasswords (Password)
+        OUTPUT INSERTED.EmployeePasswordId
+        VALUES (@Password)
+      `;
+    
+      const result = await request.query(insertQuery);
+      return result.recordset[0].EmployeePasswordId;
+    };
+
+    
+
+
     console.log("Began inserting");
+
+
+
 
     for (const seatCategory of SeatCategories) {
       await insertSeatCategory(seatCategory.SeatCategory);
@@ -83,16 +122,30 @@ async function insertData({
     for (const hall of halls) {
       await insertHall(hall.CinemaId, hall.HallNumber, hall.HallTechnologiesId);
     }
-    for (const employee of employees) {
-      await insertEmployee(
-        employee.CinemaId,
-        employee.Name,
-        employee.Surname,
-        employee.CellNumber,
-        employee.Email,
-        employee.Position
-      );
+    const passwords = generatePasswords(employees.length);
+
+    for (const password of passwords) {
+      await insertPassword(password);
     }
+    
+
+for (let i = 0; i < employees.length; i++) {
+  const employee = employees[i];
+  const { password } = passwords[i];
+
+  const employeePasswordId = await insertEmployeePassword(password);
+
+  await insertEmployee(
+    employee.CinemaId,
+    employee.Name,
+    employee.Surname,
+    employee.CellNumber,
+    employee.Email,
+    employee.Position,
+    employeePasswordId
+  );
+}
+
     for (const movie of movies) {
       await insertMovie(
         movie.Name,
@@ -325,20 +378,20 @@ const insertHall = async (cinemaId, hallNumber, hallTechnologiesId) => {
   }
 };
 
-const insertEmployee = async (
+const insertEmployee = async ( 
   cinemaId,
   name,
   surname,
   cellNumber,
   email,
-  position
+  position,
+  employeePasswordId
 ) => {
   try {
     const request = new sql.Request();
 
-    // Отримуємо PositionId на основі назви посади
     const positionQuery = `
-        SELECT EmployeePositionId FROM EmployeePositions WHERE EmployeePosition = @Position
+      SELECT EmployeePositionId FROM EmployeePositions WHERE EmployeePosition = @Position
     `;
     request.input("Position", sql.VarChar(50), position);
     const positionResult = await request.query(positionQuery);
@@ -349,18 +402,23 @@ const insertEmployee = async (
 
     const positionId = positionResult.recordset[0].EmployeePositionId;
 
-    // Додаємо працівника з отриманим PositionId
     request.input("Name", sql.VarChar(50), name);
     request.input("Surname", sql.VarChar(50), surname);
     request.input("CellNumber", sql.VarChar(20), cellNumber);
     request.input("Email", sql.VarChar(100), email);
     request.input("CinemaId", sql.Int, cinemaId);
     request.input("EmployeePositionId", sql.Int, positionId);
-    request.input("PasswordHash", sql.VarChar(255), "");
+    request.input("EmployeePasswordId", sql.Int, employeePasswordId);
 
     const query = `
-        INSERT INTO Employees (Name, Surname, CellNumber, Email, CinemaId, EmployeePositionId, PasswordHash)
-        VALUES (@Name, @Surname, @CellNumber, @Email, @CinemaId, @EmployeePositionId, @PasswordHash)
+      INSERT INTO Employees (
+        Name, Surname, CellNumber, Email,
+        CinemaId, EmployeePositionId, EmployeePasswordId
+      )
+      VALUES (
+        @Name, @Surname, @CellNumber, @Email,
+        @CinemaId, @EmployeePositionId, @EmployeePasswordId
+      )
     `;
 
     await request.query(query);
@@ -369,6 +427,7 @@ const insertEmployee = async (
     console.error("Error inserting employee:", err);
   }
 };
+
 
 const insertClient = async (name, surname, cellNumber, email) => {
   try {
@@ -500,6 +559,22 @@ const insertSeatCategory = async (seatCategory) => {
     await request.query(`
       INSERT INTO SeatCategories (SeatCategory) 
       VALUES (@SeatCategory)
+    `);
+    // console.log('Screening price inserted successfully');
+  } catch (err) {
+    console.error("Error inserting screening price:", err);
+  }
+};
+
+
+const insertPassword = async (passwords) => {
+  try {
+    const request = new sql.Request();
+    request.input("Password", sql.NVarChar(255), passwords);
+
+    await request.query(`
+      INSERT INTO EmployeePasswords (Password) 
+      VALUES (@Password)
     `);
     // console.log('Screening price inserted successfully');
   } catch (err) {
