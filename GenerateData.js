@@ -174,7 +174,8 @@ async function generateData(
     clients,
     tickets,
     screenings,
-    halls
+    halls,
+    screeningPrices
   );
 
   const suppliers = generateSuppliers(7);
@@ -732,7 +733,8 @@ const generateChecksFromTickets = (
   clients,
   tickets,
   screenings,
-  halls
+  halls,
+  screeningPrices
 ) => {
   const checks = [];
   const ticketMap = new Map();
@@ -843,7 +845,10 @@ const generateChecksFromTickets = (
     // Calculate total Sum of all tickets
     check.Sum = ticketIds.reduce((sum, ticketId) => {
       const ticket = tickets.find((t) => t.TicketsId === ticketId);
-      return sum + (ticket ? ticket.Price : 0);
+      const screeningPrice = screeningPrices.find(
+        (sp) => sp.ScreeningPriceId === ticket.ScreeningPriceId
+      );
+      return sum + Math.floor(Number(screeningPrice.TicketPrice));
     }, 0);
 
     checks.push(check);
@@ -1178,7 +1183,7 @@ const generateProductsInStorage = (
   productPlacements
 ) => {
   const productsInStorage = [];
-  const successfulDeliveryStatuses = [3]; // Статус "доставлено"
+  const successfulDeliveryStatuses = [2]; // Статус "доставлено"
 
   const employeeCinemaMap = new Map();
   for (const employee of employees) {
@@ -1365,30 +1370,25 @@ const generateProductPlacements = (
   const placements = [];
   let placementIdCounter = 1;
 
-  const successfulDeliveryStatus = 3;
+  const successfulDeliveryStatus = 2;
 
-  // Фільтруємо тільки успішно доставлені замовлення
   const successfulDeliveryOrders = deliveryOrders
     .filter((order) => order.DeliveryOrderStatusId === successfulDeliveryStatus)
     .sort((a, b) => a.DeliveryOrderId - b.DeliveryOrderId);
 
-  // Фільтруємо успішно доставлені продукти
   const successfulProductOrders = productsInOrder.filter((productInOrder) =>
     successfulDeliveryOrders.some(
       (order) => order.DeliveryOrderId === productInOrder.DeliveryOrderId
     )
   );
 
-  // Отримуємо список унікальних кінотеатрів
   const cinemas = [...new Set(employees.map((e) => e.CinemaId))];
 
-  // Групуємо співробітників за кінотеатрами
   const employeesByCinema = new Map();
   for (const cinemaId of cinemas) {
     const warehouseWorkers = employees.filter(
       (e) => e.Position === "WarehouseWorker"
     );
-
     employeesByCinema.set(
       cinemaId,
       warehouseWorkers.filter((e) => e.CinemaId === cinemaId)
@@ -1401,46 +1401,39 @@ const generateProductPlacements = (
     );
     if (!deliveryOrder) continue;
 
-    // Генеруємо EndDateTime (якщо його немає)
     const endDate = new Date(deliveryOrder.OrderDateTime);
-    endDate.setMinutes(endDate.getMinutes() + getRandomNumberInRange(30, 240)); // Додаємо 30-240 хвилин (0.5 - 4 години)
+    endDate.setMinutes(endDate.getMinutes() + getRandomNumberInRange(30, 240));
 
     let remainingQuantity = productOrder.Quantity;
-
-    // Визначаємо, скільки кінотеатрів отримає цей товар
     const numCinemas = getRandomNumberInRange(
       1,
       Math.min(cinemas.length, remainingQuantity)
-    ); // Випадкова кількість кінотеатрів
-
-    // Отримуємо випадкові кінотеатри для цього товару
+    );
     const selectedCinemas = shuffleArray([...cinemas]).slice(0, numCinemas);
 
-    for (const cinemaId of selectedCinemas) {
+    for (let i = 0; i < selectedCinemas.length; i++) {
+      const cinemaId = selectedCinemas[i];
       if (remainingQuantity <= 0) break;
 
-      // Випадковий співробітник із цього кінотеатру
       const employeesInCinema = employeesByCinema.get(cinemaId);
       if (!employeesInCinema || employeesInCinema.length === 0) continue;
 
-      const warehouseWorkersInCinema = employeesInCinema.filter(
-        (e) => e.Position
-      );
       const employee = getRandomItem(employeesInCinema);
 
-      // Визначаємо кількість товарів для цього кінотеатру (щоб не перевищити залишок)
-      const quantityForCinema = getRandomNumberInRange(
-        1,
-        Math.min(
-          remainingQuantity,
-          Math.ceil(productOrder.Quantity / numCinemas)
-        )
-      );
+      let quantityForCinema;
+      if (i === selectedCinemas.length - 1) {
+        quantityForCinema = remainingQuantity;
+      } else {
+        quantityForCinema = getRandomNumberInRange(
+          1,
+          remainingQuantity - (selectedCinemas.length - i - 1)
+        );
+      }
+
       remainingQuantity -= quantityForCinema;
 
-      // Визначаємо PlacementDate (від 10 хвилин до 12 годин після EndDateTime)
       const placementDate = new Date(endDate);
-      const minutesToAdd = getRandomNumberInRange(10, 720); // 10 хв - 12 год (720 хв)
+      const minutesToAdd = getRandomNumberInRange(10, 720);
       placementDate.setMinutes(endDate.getMinutes() + minutesToAdd);
 
       const placement = {

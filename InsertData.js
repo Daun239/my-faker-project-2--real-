@@ -41,46 +41,41 @@ async function insertData({
   try {
     await sql.connect(config);
 
+    const generateRandomPassword = () => {
+      const chars =
+        "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+      let password = "";
+      for (let i = 0; i < 10; i++) {
+        password += chars[Math.floor(Math.random() * chars.length)];
+      }
+      return password; // ✅ returns a plain string
+    };
 
     const generatePasswords = (employeesCount) => {
       const passwords = [];
-      const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*';
-    
       for (let i = 0; i < employeesCount; i++) {
-        let password = '';
-        for (let j = 0; j < 10; j++) {
-          const randomIndex = Math.floor(Math.random() * chars.length);
-          password += chars[randomIndex];
-        }
-        passwords.push({ id: i, password });
+        passwords.push({ password: generateRandomPassword() });
       }
-    
       return passwords;
     };
 
     const insertEmployeePassword = async (password) => {
       const request = new sql.Request();
-    
+
       // Optionally hash the password before storing
       request.input("Password", sql.VarChar(255), password);
-    
+
       const insertQuery = `
         INSERT INTO EmployeePasswords (Password)
         OUTPUT INSERTED.EmployeePasswordId
         VALUES (@Password)
       `;
-    
+
       const result = await request.query(insertQuery);
       return result.recordset[0].EmployeePasswordId;
     };
 
-    
-
-
     console.log("Began inserting");
-
-
-
 
     for (const seatCategory of SeatCategories) {
       await insertSeatCategory(seatCategory.SeatCategory);
@@ -127,24 +122,23 @@ async function insertData({
     for (const password of passwords) {
       await insertPassword(password);
     }
-    
 
-for (let i = 0; i < employees.length; i++) {
-  const employee = employees[i];
-  const { password } = passwords[i];
+    for (let i = 0; i < employees.length; i++) {
+      const employee = employees[i];
+      const { password } = passwords[i];
 
-  const employeePasswordId = await insertEmployeePassword(password);
+      const employeePasswordId = await insertEmployeePassword(password);
 
-  await insertEmployee(
-    employee.CinemaId,
-    employee.Name,
-    employee.Surname,
-    employee.CellNumber,
-    employee.Email,
-    employee.Position,
-    employeePasswordId
-  );
-}
+      await insertEmployee(
+        employee.CinemaId,
+        employee.Name,
+        employee.Surname,
+        employee.CellNumber,
+        employee.Email,
+        employee.Position,
+        employeePasswordId
+      );
+    }
 
     for (const movie of movies) {
       await insertMovie(
@@ -378,7 +372,7 @@ const insertHall = async (cinemaId, hallNumber, hallTechnologiesId) => {
   }
 };
 
-const insertEmployee = async ( 
+const insertEmployee = async (
   cinemaId,
   name,
   surname,
@@ -427,7 +421,6 @@ const insertEmployee = async (
     console.error("Error inserting employee:", err);
   }
 };
-
 
 const insertClient = async (name, surname, cellNumber, email) => {
   try {
@@ -565,7 +558,6 @@ const insertSeatCategory = async (seatCategory) => {
     console.error("Error inserting screening price:", err);
   }
 };
-
 
 const insertPassword = async (passwords) => {
   try {
